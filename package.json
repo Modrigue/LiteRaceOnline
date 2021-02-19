@@ -1,0 +1,22 @@
+{
+  "name": "literace-online",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently -k -n \"TS,Node\" -p \"[{name}]\" -c \"blue,green\" \"tsc -w\" \"nodemon js\\server.js\"",
+    "start": "node js\\server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^4.17.1",
+    "socket.io": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^14.14.22",
+    "@types/socket.io": "^2.1.13",
+    "concurrently": "^5.3.0"
+  }
+}

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <title>Socket.io Rooms GUI</title>
+</head>
+<body>
+    <div id="pageWelcome" class="center">
+        <p>Welcome</p>
+        <div class="grid2Cols">
+            <div><span>Enter your name</span></div>
+            <div><input id="userName" required maxlength="12" autocomplete="off" /></div>
+            <div><br></div>
+            <div></div>
+        
+            <div>
+                <input type="radio" id="radioJoinRoom" name="radioJoinCreateRoom" value="join" checked disabled>
+                <label class="input-label" for="radioJoinRoom" disabled>Join room</label>
+            </div>
+            <div><select id="joinRoomName" disabled></select></div>
+        
+            <div>
+                <input type="radio" id="radioCreateRoom" name="radioJoinCreateRoom" value="create" disabled>
+                <label class="input-label" for="radioCreateRoom" disabled>Create new room</label>
+            </div>
+            <div><input id="createRoomName" required maxlength="24" autocomplete="off" disabled /></div>
+
+            <div><span>Password</span></div>
+            <div><input id="password" type="password" maxlength="12" autocomplete="off" /></div>
+        </div>
+        <br>
+        <button id="buttonSubmit" class="center" disabled>GO</button>
+    </div>
+
+    <div id="pageGameSetup" style="display: none;">
+        <p id="gameSetupTitle" class="center">Game setup</p>
+        <div class="center">
+            <input id="gameNbPlayers" type="number" required min=1 max=99 value=2 maxlength="2" disabled />
+            <span> players</span>
+            <br>
+            <input id="gameNbRounds" type="number" required min=1 max=99 value=3 maxlength="2" disabled />
+            <span> rounds</span>
+        </div>
+        <br>
+        <div id="playersList" class="grid4Cols">
+            <div>Name</div>
+            <div>Color</div>
+            <div>Team</div>
+            <div>Ready</div>
+        </div>
+        <br><br>
+        <div class="center">
+            <button id="buttonPlay"disabled>START GAME</button>
+        </div>
+    </div>
+
+    <div id="pageGame" style="display: none;">
+        <p id="gameTitle" class="center">Game</p>
+        <div id="gameTeam1" class="center"></div>
+        <div id="gameTeam2" class="center"></div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.4.0/socket.io.js"></script>
+    
+    <!-- Client-side game -->
+    <script src="js/interface.js"></script>
+    <script src="js/client.js"></script>
+</body>
+</html>
