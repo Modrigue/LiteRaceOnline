@@ -1,12 +1,20 @@
 //import { canvas, socket } from "./client.js";
 
 let justPressed: boolean = false;
+let isDown: boolean = false;
 
 //Event listeners for the arrow keys
 function userInput(obj: any, canvas: HTMLCanvasElement)
 {        
     canvas.addEventListener('keydown', function(e)
     {
+        // prevents multiple simultaneous keys
+        // TODO: temporization?
+        if (isDown)
+            return;
+        
+        isDown = true;
+
         switch(e.key)
         {
             case 'ArrowLeft':
@@ -48,6 +56,8 @@ function userInput(obj: any, canvas: HTMLCanvasElement)
     
     canvas.addEventListener('keyup', function(e)
     {
+        isDown = false;
+
         switch(e.key)
         {
             case 'ArrowLeft':
