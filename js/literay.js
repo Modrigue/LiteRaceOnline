@@ -9,7 +9,7 @@ class LiteRay {
     addPoint(x, y) {
         this._points.push(new Point2(x, y));
     }
-    getNextPoint() {
+    getNextPoint(step = 1) {
         if (!this._points || this._points.length <= 1)
             return new Point2(-Infinity, -Infinity);
         // get last segment
@@ -19,14 +19,14 @@ class LiteRay {
         // compute unit direction vector
         const dx = pointLast.x - pointLastPrev.x;
         const dy = pointLast.y - pointLastPrev.y;
-        const x = pointLast.x + Math.sign(dx);
-        const y = pointLast.x + Math.sign(dy);
+        const x = pointLast.x + step * Math.sign(dx);
+        const y = pointLast.y + step * Math.sign(dy);
         return new Point2(x, y);
     }
-    extendsToNextPoint() {
+    extendsToNextPoint(step = 1) {
         if (!this._points || this._points.length == 0)
             return;
-        const pointNext = this.getNextPoint();
+        const pointNext = this.getNextPoint(step);
         if (pointNext.x === -Infinity || pointNext.y === -Infinity)
             return;
         // extend last point

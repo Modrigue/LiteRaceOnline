@@ -16,7 +16,7 @@ class LiteRay
         this._points.push(new Point2(x, y));
     }
 
-    getNextPoint(): Point2
+    getNextPoint(step: number = 1): Point2
     {
         if (!this._points || this._points.length <= 1)
             return new Point2(-Infinity, -Infinity);
@@ -30,18 +30,18 @@ class LiteRay
         const dx: number = pointLast.x - pointLastPrev.x;
         const dy: number = pointLast.y - pointLastPrev.y;
 
-        const x: number = pointLast.x + Math.sign(dx);
-        const y: number = pointLast.x + Math.sign(dy);
+        const x: number = pointLast.x + step*Math.sign(dx);
+        const y: number = pointLast.y + step*Math.sign(dy);
 
         return new Point2(x, y);
     }
 
-    extendsToNextPoint(): void
+    extendsToNextPoint(step: number = 1): void
     {
         if (!this._points || this._points.length == 0)
             return;
 
-        const pointNext: Point2 = this.getNextPoint();
+        const pointNext: Point2 = this.getNextPoint(step);
         if (pointNext.x === -Infinity || pointNext.y === -Infinity)
             return;
 
