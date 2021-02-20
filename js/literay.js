@@ -3,15 +3,24 @@ class LiteRay {
     constructor(color) {
         this._points = new Array();
         this.color = color;
-        this.speed = 0;
+        this.speed = 1;
         this.up = false;
         this.down = false;
         this.left = false;
         this.right = false;
         this.action = false;
+        this.alive = false;
     }
     get points() { return this._points; }
     set points(value) { this._points = value; }
+    getLastPoint() {
+        if (!this._points || this._points.length == 0)
+            return new Point2(-Infinity, -Infinity);
+        // get last point
+        const nbPoints = this._points.length;
+        const pointLast = this._points[nbPoints - 1];
+        return pointLast;
+    }
     addPoint(x, y) {
         this._points.push(new Point2(x, y));
     }
@@ -22,8 +31,7 @@ class LiteRay {
         if (dirx == -Infinity || diry == -Infinity)
             return new Point2(-Infinity, -Infinity);
         // get last point
-        const nbPoints = this._points.length;
-        const pointLast = this._points[nbPoints - 1];
+        const pointLast = this.getLastPoint();
         const x = pointLast.x + this.speed * dirx;
         const y = pointLast.y + this.speed * diry;
         return new Point2(x, y);

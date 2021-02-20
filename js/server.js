@@ -1,6 +1,146 @@
 "use strict";
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
+//////////////////////////////// GEOMETRY ENGINE //////////////////////////////
+class Point2_S {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+}
+class Segment_S {
+    constructor(x1, y1, x2, y2, color) {
+        this._points = new Array(2);
+        this._points[0] = new Point2_S(x1, y1);
+        this._points[1] = new Point2_S(x2, y2);
+    }
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
+}
+class LiteRay_S {
+    constructor() {
+        this._points = new Array();
+        this.color = "white";
+        this.speed = 1;
+        this.up = false;
+        this.down = false;
+        this.left = false;
+        this.right = false;
+        this.action = false;
+        this.alive = false;
+    }
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
+    getLastPoint() {
+        if (!this._points || this._points.length == 0)
+            return new Point2_S(-Infinity, -Infinity);
+        // get last point
+        const nbPoints = this._points.length;
+        const pointLast = this._points[nbPoints - 1];
+        return pointLast;
+    }
+    addPoint(x, y) {
+        this._points.push(new Point2_S(x, y));
+    }
+    getNextPoint() {
+        if (!this._points || this._points.length <= 1)
+            return new Point2_S(-Infinity, -Infinity);
+        const { dirx, diry } = this.direction();
+        if (dirx == -Infinity || diry == -Infinity)
+            return new Point2_S(-Infinity, -Infinity);
+        // get last point
+        const pointLast = this.getLastPoint();
+        const x = pointLast.x + this.speed * dirx;
+        const y = pointLast.y + this.speed * diry;
+        return new Point2_S(x, y);
+    }
+    extendsToNextPoint() {
+        if (!this._points || this._points.length == 0)
+            return;
+        const pointNext = this.getNextPoint();
+        if (pointNext.x === -Infinity || pointNext.y === -Infinity)
+            return;
+        // extend last point
+        const nbPoints = this._points.length;
+        this._points[nbPoints - 1].x = pointNext.x;
+        this._points[nbPoints - 1].y = pointNext.y;
+    }
+    direction() {
+        if (!this._points || this._points.length <= 1)
+            return { dirx: -Infinity, diry: -Infinity };
+        // get last segment
+        const nbPoints = this._points.length;
+        const pointLast = this._points[nbPoints - 1];
+        const pointLastPrev = this._points[nbPoints - 2];
+        // compute unit direction vector
+        const dx = pointLast.x - pointLastPrev.x;
+        const dy = pointLast.y - pointLastPrev.y;
+        const dirx = Math.sign(dx);
+        const diry = Math.sign(dy);
+        return { dirx: dirx, diry: diry };
+    }
+    keyControl() {
+        const { dirx, diry } = this.direction();
+        // get last segment
+        const nbPoints = this._points.length;
+        const pointLast = this._points[nbPoints - 1];
+        if (this.up && diry == 0)
+            this.addPoint(pointLast.x, pointLast.y - this.speed);
+        else if (this.down && diry == 0)
+            this.addPoint(pointLast.x, pointLast.y + this.speed);
+        else if (this.left && dirx == 0)
+            this.addPoint(pointLast.x - this.speed, pointLast.y);
+        else if (this.right && dirx == 0)
+            this.addPoint(pointLast.x + this.speed, pointLast.y);
+    }
+}
+function collideSegment(ray, x1, y1, x2, y2) {
+    const pointLast = ray.getLastPoint();
+    const xr = pointLast.x;
+    const yr = pointLast.y;
+    if (xr == -Infinity || yr == -Infinity)
+        return false;
+    // check if last point is in bounding box
+    const xSegMin = Math.min(x1, x2);
+    const xSegMax = Math.max(x1, x2);
+    const ySegMin = Math.min(y1, y2);
+    const ySegMax = Math.max(y1, y2);
+    const isInBoundingBox = (xSegMin <= xr && xr <= xSegMax) && (ySegMin <= yr && yr <= ySegMax);
+    if (!isInBoundingBox)
+        return false;
+    // check if last ray point is on segment
+    // point on segment iff. (yr - y1)/(y2 - y1) = (xr - x1)/(x2 - x1)
+    // <=> (yr - y1)*(x2 - x1) = (xr - x1)*(y2 - y1) to avoir divisions by 0
+    // <=> | (yr - y1)*(x2 - x1) - (xr - x1)*(y2 - y1) | < threshold to handle pixels
+    const dist = Math.abs((yr - y1) * (x2 - x1) - (xr - x1) * (y2 - y1));
+    return (dist <= 480 /* canvas height */);
+}
+function collideRay(ray1, ray2) {
+    const pointLast = ray1.getLastPoint();
+    const xr = pointLast.x;
+    const yr = pointLast.y;
+    if (xr == -Infinity || yr == -Infinity)
+        return false;
+    const isOwnRay = (ray1 === ray2);
+    // check collision with each segment
+    let index = 0;
+    let pointPrev = new Point2_S(-1, -1);
+    for (const pointCur of ray2.points) {
+        // skip own ray current segment
+        if (isOwnRay && index == ray2.points.length - 1)
+            continue;
+        if (index > 0) {
+            const collide = collideSegment(ray1, pointPrev.x, pointPrev.y, pointCur.x, pointCur.y);
+            if (collide)
+                return true;
+        }
+        pointPrev.x = pointCur.x;
+        pointPrev.y = pointCur.y;
+        index++;
+    }
+    return false;
+}
+///////////////////////////////////////////////////////////////////////////////
 const express = require('express');
 const app = express();
 let io;
@@ -17,13 +157,13 @@ else {
     io = require('socket.io')(PORT);
     app.get('/', (req, res) => res.send('Hello World!'));
 }
-class Player_S {
+class Player_S extends LiteRay_S {
     constructor() {
+        super(...arguments);
         this.score = 0;
         this.no = 0;
         this.name = "";
         this.room = "";
-        this.color = "#0000ff";
         this.team = "";
         this.ready = false;
         this.creator = false;
@@ -39,14 +179,19 @@ class Game_S {
     constructor() {
         this.nbPlayersMax = 2;
         this.players = new Map();
-        this.nbRounds = 3;
+        this.stadium = new Array();
+        this.nbRounds = 15;
         this.password = "";
         this.status = GameStatus.NONE;
     }
 }
 let games = new Map();
 let clientNo = 0;
+let gameTest = new Game_S();
+gameTest.nbPlayersMax = 1;
+games.set("TEST", gameTest);
 io.on('connection', connected);
+setInterval(serverLoop, 1000 / 60);
 //////////////////////////////// RECEIVE EVENTS ///////////////////////////////
 function connected(socket) {
     console.log(`Client '${socket.id}' connected`);
@@ -69,6 +214,7 @@ function connected(socket) {
         creator.creator = true;
         creator.name = params.name;
         creator.room = room;
+        creator.no = 0;
         let newGame = new Game_S();
         newGame.players.set(socket.id, creator);
         newGame.password = params.password;
@@ -120,6 +266,7 @@ function connected(socket) {
         let player = new Player_S();
         player.name = params.name;
         player.room = room;
+        player.no = game.players.size;
         game.players.set(socket.id, player);
         // enable play button if game already on
         const enablePlay = (game.status == GameStatus.PLAYING);
@@ -181,6 +328,9 @@ function connected(socket) {
                     // join started game
                     console.log(`Client '${socket.id}' joins started game '${room}'`);
                     playGame(room);
+                default:
+                    // for tests only
+                    playGame(room);
             }
         }
         updateRoomsList();
@@ -211,7 +361,7 @@ function connected(socket) {
         const game = games.get(room);
         if (game.players !== null && game.players.has(socket.id))
             game.players.delete(socket.id);
-        deleteEmptyRooms();
+        //deleteEmptyRooms();
         updateRoomsList();
         updatePlayersList(room);
         updatePlayersParams(room);
@@ -228,6 +378,18 @@ function connected(socket) {
             kickPlayerFromRoom(room, params.id);
         }
         updateRoomsList();
+    });
+    // user inputs
+    socket.on('userCommands', (data) => {
+        let player = getPlayerFromId(socket.id);
+        const room = getPlayerRoomFromId(socket.id);
+        if (!games.has(room) || !player)
+            return;
+        player.left = data.left;
+        player.up = data.up;
+        player.right = data.right;
+        player.down = data.down;
+        player.action = data.action;
     });
 }
 ////////////////////////////////// SEND EVENTS ////////////////////////////////
@@ -289,8 +451,100 @@ function kickAllPlayersFromRoom(room) {
 function playGame(room) {
     if (!games.has(room))
         return;
+    newStadium(room);
     const game = games.get(room);
     io.to(room).emit('playGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
+    // TODO: init players position at each round
+    let playerParams = Array();
+    for (const [id, player] of game.players) {
+        player.addPoint(20, 240);
+        player.addPoint(21, 240);
+        player.alive = true;
+        playerParams.push({ id: id, x1: player.points[0].x, y1: player.points[0].y,
+            x2: player.points[1].x, y2: player.points[1].y, color: player.color });
+    }
+    io.to(room).emit('createPlayers', playerParams);
+}
+/////////////////////////////////////// LOOPS /////////////////////////////////
+function serverLoop() {
+    userInteraction();
+    physicsLoop();
+    // send players positions to clients
+    for (const [room, game] of games) {
+        //if (gameIsOn.get(room))
+        {
+            gameLogic(room);
+            for (let [id, player] of game.players) {
+                io.to(room).emit('updatePlayersPositions', {
+                    id: id,
+                    points: player.points
+                });
+            }
+        }
+        // else
+        // {
+        //     //
+        // }
+    }
+}
+function gameLogic(room) {
+    // check remaining players
+}
+function physicsLoop() {
+    for (const [room, game] of games) {
+        //console.log(room, game.players);
+        // extend to next point
+        game.players.forEach((player) => {
+            if (player.alive)
+                player.extendsToNextPoint();
+        });
+        // check for collisions
+        game.players.forEach((player) => {
+            for (const [id, ray] of game.players) {
+                if (player.alive)
+                    if (collideRay(player, ray)) {
+                        player.alive = false;
+                        console.log("COLLISION RAY");
+                    }
+            }
+            for (const wall of game.stadium) {
+                if (player.alive)
+                    if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
+                        player.alive = false;
+                        console.log("COLLISION WALL");
+                    }
+            }
+        });
+    }
+}
+function userInteraction() {
+    for (const [room, game] of games) {
+        game.players.forEach((player) => { player.keyControl(); });
+    }
+}
+function newStadium(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    game.stadium = new Array();
+    let wall1 = new Segment_S(10, 0, 10, 480, "darkgrey");
+    let wall2 = new Segment_S(630, 0, 630, 480, "darkgrey");
+    let wall3 = new Segment_S(0, 10, 640, 10, "darkgrey");
+    let wall4 = new Segment_S(0, 400, 640, 400, "darkgrey");
+    game.stadium.push(wall1);
+    game.stadium.push(wall2);
+    game.stadium.push(wall3);
+    game.stadium.push(wall4);
+    sendStadium(room);
+}
+function sendStadium(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    let stadiumParams = new Array();
+    for (const wall of game.stadium)
+        stadiumParams.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y });
+    io.to(room).emit('stadium', stadiumParams);
 }
 ////////////////////////////////////// HELPERS ////////////////////////////////
 // delete empty rooms

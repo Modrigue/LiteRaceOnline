@@ -6,6 +6,7 @@ class LiteRay
     
     public color: string;
     public speed: number;
+    public alive: boolean;
 
     // player controls
     up: boolean; down: boolean; left: boolean; right: boolean;
@@ -14,13 +15,26 @@ class LiteRay
     constructor(color: string)
     {
         this.color = color;
-        this.speed = 0;
+        this.speed = 1;
 
         this.up = false;
         this.down = false;
         this.left = false;
         this.right = false;
         this.action = false;
+
+        this.alive = false;
+    }
+
+    getLastPoint(): Point2
+    {
+        if (!this._points || this._points.length == 0)
+        return new Point2(-Infinity, -Infinity);
+
+        // get last point
+        const nbPoints = this._points.length;
+        const pointLast = this._points[nbPoints - 1];
+        return pointLast;
     }
 
     addPoint(x: number, y: number): void
@@ -38,8 +52,7 @@ class LiteRay
             return new Point2(-Infinity, -Infinity);
 
         // get last point
-        const nbPoints = this._points.length;
-        const pointLast = this._points[nbPoints - 1];
+        const pointLast = this.getLastPoint();
 
         const x: number = pointLast.x + this.speed*dirx;
         const y: number = pointLast.y + this.speed*diry;

@@ -7,18 +7,22 @@ function userInput(obj, canvas) {
         switch (e.key) {
             case 'ArrowLeft':
                 obj.left = true;
+                obj.right = obj.up = obj.down = false;
                 justPressed = true;
                 break;
             case 'ArrowUp':
                 obj.up = true;
+                obj.left = obj.right = obj.down = false;
                 justPressed = true;
                 break;
             case "ArrowRight":
                 obj.right = true;
+                obj.left = obj.up = obj.down = false;
                 justPressed = true;
                 break;
             case "ArrowDown":
                 obj.down = true;
+                obj.left = obj.right = obj.up = false;
                 justPressed = true;
                 break;
             case ' ':

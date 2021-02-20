@@ -9,6 +9,8 @@ else
 let selfID;
 let creator = false;
 let reconnecting = false;
+class Player extends LiteRay {
+}
 /////////////////////////// INTERACTION WITH SERVER ///////////////////////////
 socket.on('connect', () => {
     selfID = socket.id;
@@ -348,5 +350,57 @@ socket.on('playGame', (params) => {
     setVisible("pageWelcome", false);
     setVisible("pageGameSetup", false);
     setVisible("pageGame", true);
+});
+socket.on('createPlayers', (params) => {
+    PLAYERS = new Map();
+    for (const playerParams of params) {
+        let player = new Player(playerParams.color);
+        player.addPoint(playerParams.x1, playerParams.y1);
+        player.addPoint(playerParams.x2, playerParams.y2);
+        if (playerParams.id === selfID)
+            userInput(player, canvas);
+        PLAYERS.set(playerParams.id, player);
+    }
+    canvas.focus();
+    requestAnimationFrame(renderOnly);
+});
+socket.on('updatePlayersPositions', (params) => {
+    //console.log("update pos ", params);
+    if (!PLAYERS.has(params.id))
+        return;
+    let player = PLAYERS.get(params.id);
+    player.points = params.points;
+});
+///////////////////////////////////// GAME ////////////////////////////////////
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+//canvas.style.width  = '800px';
+//canvas.style.height = '600px';
+let PLAYERS = new Map();
+let STADIUM = new Array();
+// for test purposes only
+joinTestRoom();
+function joinTestRoom() {
+    socket.emit('joinRoom', { name: "TEST", room: "TEST", password: "" }, (response) => { });
+    socket.emit('setPlayerParams', { color: "yellow", team: "TEST", ready: true }, (response) => { });
+    onPlay();
+}
+function renderOnly() {
+    renderLoop();
+    requestAnimationFrame(renderOnly);
+}
+function renderLoop() {
+    ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    PLAYERS.forEach((player) => { player.draw(ctx); });
+    STADIUM.forEach((wall) => { wall.draw(ctx); });
+    // display players' infos
+    //userInterface();
+}
+socket.on('stadium', (params) => {
+    STADIUM = new Array();
+    for (const coords of params) {
+        const newWall = new Segment(coords.x1, coords.y1, coords.x2, coords.y2, "darkgrey");
+        STADIUM.push(newWall);
+    }
 });
 //# sourceMappingURL=client.js.map
