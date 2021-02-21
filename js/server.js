@@ -178,6 +178,14 @@ var GameStatus;
     GameStatus[GameStatus["SETUP"] = 1] = "SETUP";
     GameStatus[GameStatus["PLAYING"] = 2] = "PLAYING";
 })(GameStatus || (GameStatus = {}));
+var DisplayStatus_S;
+(function (DisplayStatus_S) {
+    DisplayStatus_S[DisplayStatus_S["NONE"] = 0] = "NONE";
+    DisplayStatus_S[DisplayStatus_S["PREPARE"] = 1] = "PREPARE";
+    DisplayStatus_S[DisplayStatus_S["POS_INIT"] = 2] = "POS_INIT";
+    DisplayStatus_S[DisplayStatus_S["PLAYING"] = 3] = "PLAYING";
+    DisplayStatus_S[DisplayStatus_S["SCORES"] = 4] = "SCORES";
+})(DisplayStatus_S || (DisplayStatus_S = {}));
 class Game_S {
     constructor() {
         this.nbPlayersMax = 2;
@@ -187,6 +195,7 @@ class Game_S {
         this.round = 0;
         this.password = "";
         this.status = GameStatus.NONE;
+        this.displayStatus = DisplayStatus_S.NONE;
     }
 }
 let games = new Map();
@@ -460,15 +469,19 @@ function playGame(room) {
         return;
     const game = games.get(room);
     game.round = 0;
+    game.displayStatus = DisplayStatus_S.PREPARE;
     newRound(room);
-    io.to(room).emit('playGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
+    io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
     // create players
-    let playerParams = Array();
-    for (const [id, player] of game.players) {
-        playerParams.push({ id: id, x1: player.points[0].x, y1: player.points[0].y,
-            x2: player.points[1].x, y2: player.points[1].y, color: player.color });
-    }
-    io.to(room).emit('createPlayers', playerParams);
+    setTimeout(() => {
+        let playerParams = Array();
+        for (const [id, player] of game.players) {
+            playerParams.push({ id: id, x1: player.points[0].x, y1: player.points[0].y,
+                x2: player.points[1].x, y2: player.points[1].y, color: player.color });
+        }
+        io.to(room).emit('createPlayers', playerParams);
+        game.displayStatus = DisplayStatus_S.PLAYING;
+    }, 2000);
 }
 function getNextPlayerNoInRoom(room) {
     if (!games.has(room))
@@ -505,25 +518,28 @@ function initPlayersPositions(room) {
         player.addPoint(xStart + dx, yStart);
         player.alive = true;
         player.killedBy = "";
+        player.up = player.down = player.left = player.right = player.action = false;
         // for tests only
         const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
+        const playersNames = ["Player 1", "Player 2", "Player 3", "Player 4"];
         player.color = playersColors[player.no - 1];
+        player.name = playersNames[player.no - 1];
     }
 }
 /////////////////////////////////////// LOOPS /////////////////////////////////
 function serverLoop() {
-    userInteraction();
-    physicsLoop();
     // send players positions to clients
     for (const [room, game] of games) {
-        if (game.status == GameStatus.PLAYING) {
-            gameLogic(room);
-            for (let [id, player] of game.players) {
-                io.to(room).emit('updatePlayersPositions', {
-                    id: id,
-                    points: player.points
-                });
-            }
+        if (game.status != GameStatus.PLAYING || game.displayStatus != DisplayStatus_S.PLAYING)
+            continue;
+        userInteraction(room);
+        physicsLoop(room);
+        gameLogic(room);
+        for (let [id, player] of game.players) {
+            io.to(room).emit('updatePlayersPositions', {
+                id: id,
+                points: player.points
+            });
         }
     }
 }
@@ -540,40 +556,42 @@ function gameLogic(room) {
     if (nbPlayersAlive <= nbPlayersLast)
         scoring(room);
 }
-function physicsLoop() {
-    for (const [room, game] of games) {
-        //console.log(room, game.players);
-        // extend to next point
-        game.players.forEach((player) => {
-            if (player.alive)
-                player.extendsToNextPoint();
-        });
-        // check for collisions
-        game.players.forEach((player) => {
-            if (player.alive) {
-                for (const [id, otherPlayer] of game.players) {
-                    if (collideRay(player, otherPlayer)) {
-                        player.alive = false;
-                        player.killedBy = id;
-                        console.log("COLLISION RAY");
-                    }
-                }
-                for (const wall of game.stadium) {
-                    if (player.alive)
-                        if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
-                            player.alive = false;
-                            player.killedBy = "WALL";
-                            console.log("COLLISION WALL");
-                        }
+function physicsLoop(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    //console.log(room, game.players);
+    // extend to next point
+    game.players.forEach((player) => {
+        if (player.alive)
+            player.extendsToNextPoint();
+    });
+    // check for collisions
+    game.players.forEach((player) => {
+        if (player.alive) {
+            for (const [id, otherPlayer] of game.players) {
+                if (collideRay(player, otherPlayer)) {
+                    player.alive = false;
+                    player.killedBy = id;
+                    console.log("COLLISION RAY");
                 }
             }
-        });
-    }
+            for (const wall of game.stadium) {
+                if (player.alive)
+                    if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
+                        player.alive = false;
+                        player.killedBy = "WALL";
+                        console.log("COLLISION WALL");
+                    }
+            }
+        }
+    });
 }
-function userInteraction() {
-    for (const [room, game] of games) {
-        game.players.forEach((player) => { player.keyControl(); });
-    }
+function userInteraction(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    game.players.forEach((player) => { player.keyControl(); });
 }
 function scoring(room) {
     if (!games.has(room))
@@ -582,12 +600,17 @@ function scoring(room) {
     // update players scores
     for (const [id, player] of game.players) {
         const idKiller = player.killedBy;
-        //console.log(`Player ${id}: killed by ${idKiller}`);
+        console.log(`Player ${id}: killed by ${idKiller}`);
         if (idKiller == id) // suicide
             player.score = Math.max(player.score - 1, 0);
-        else if (idKiller.length > 0)
-            game.players.get(idKiller).score++;
-        //console.log(`Player ${id}: ${player.score} points`);
+        else if (idKiller == "WALL") {
+            // nop
+        }
+        else if (idKiller.length > 0) {
+            if (game.players.has(idKiller))
+                game.players.get(idKiller).score++;
+        }
+        //console.log(`${player.name}: ${player.score} point(s)`);
     }
     //
     newRound(room);
@@ -598,7 +621,7 @@ function newRound(room) {
         return;
     const game = games.get(room);
     game.round++;
-    console.log(`ROOM ${room} - ROUND ${game.round}`);
+    //console.log(`ROOM ${room} - ROUND ${game.round}`);
     newStadium(room);
     initPlayersPositions(room);
 }

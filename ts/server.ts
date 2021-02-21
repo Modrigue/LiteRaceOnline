@@ -260,6 +260,15 @@ enum GameStatus
     PLAYING
 }
 
+enum DisplayStatus_S
+{
+    NONE,
+    PREPARE,
+    POS_INIT,
+    PLAYING,
+    SCORES
+}
+
 class Game_S
 {
     nbPlayersMax: number = 2;
@@ -271,6 +280,7 @@ class Game_S
 
     password: string = "";
     status: GameStatus = GameStatus.NONE;
+    displayStatus: DisplayStatus_S = DisplayStatus_S.NONE;
 }
 
 let games = new Map<string, Game_S>();
@@ -646,18 +656,23 @@ function playGame(room: string)
     
     const game = <Game_S>games.get(room);
     game.round = 0;
+    game.displayStatus = DisplayStatus_S.PREPARE;
     newRound(room);
 
-    io.to(room).emit('playGame', {room: room, nbPlayersMax: game.nbPlayersMax, nbRounds : game.nbRounds});
+    io.to(room).emit('prepareGame', {room: room, nbPlayersMax: game.nbPlayersMax, nbRounds : game.nbRounds});
     
     // create players
-    let playerParams = Array<{id: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
-    for (const [id, player] of game.players)
-    {
-        playerParams.push({id: id, x1: player.points[0].x, y1: player.points[0].y,
-            x2: player.points[1].x, y2: player.points[1].y, color: player.color});
-    }
-    io.to(room).emit('createPlayers', playerParams);
+    setTimeout(() => {
+        let playerParams = Array<{id: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
+        for (const [id, player] of game.players)
+        {
+            playerParams.push({id: id, x1: player.points[0].x, y1: player.points[0].y,
+                x2: player.points[1].x, y2: player.points[1].y, color: player.color});
+        }
+
+        io.to(room).emit('createPlayers', playerParams);
+        game.displayStatus = DisplayStatus_S.PLAYING;
+    }, 2000);
 }
 
 
@@ -710,10 +725,13 @@ function initPlayersPositions(room: string): void
 
         player.alive = true;
         player.killedBy = "";
+        player.up = player.down = player.left = player.right = player.action = false;
         
         // for tests only
         const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
+        const playersNames = ["Player 1", "Player 2", "Player 3", "Player 4"];
         player.color = playersColors[player.no - 1];
+        player.name = playersNames[player.no - 1];
     }    
 }
 
@@ -721,24 +739,23 @@ function initPlayersPositions(room: string): void
 
 function serverLoop()
 {
-    userInteraction();
-    physicsLoop();
-
     // send players positions to clients
     for (const [room, game] of games)
     {
-        if (game.status == GameStatus.PLAYING)
-        {
-            gameLogic(room);
-            for (let [id, player] of game.players)
-            {
-                io.to(room).emit('updatePlayersPositions', {
-                    id: id,
-                    points: player.points
-                });
-            }
-        }
+        if (game.status != GameStatus.PLAYING || game.displayStatus != DisplayStatus_S.PLAYING)
+            continue;
 
+        userInteraction(room);
+        physicsLoop(room);
+        gameLogic(room);
+
+        for (let [id, player] of game.players)
+        {
+            io.to(room).emit('updatePlayersPositions', {
+                id: id,
+                points: player.points
+            });
+        }
     }
 }
 
@@ -759,75 +776,82 @@ function gameLogic(room: string): void
         scoring(room);
 }
 
-function physicsLoop(): void
+function physicsLoop(room: string): void
 {
-    for (const [room, game] of games)
-    {
-        //console.log(room, game.players);
-        // extend to next point
-        game.players.forEach((player) => {
-            if (player.alive)
-                player.extendsToNextPoint();
-                
-        });
+    if (!games.has(room))
+        return;
+    const game = <Game_S>games.get(room);
+    //console.log(room, game.players);
 
-        // check for collisions
-        game.players.forEach((player) => {
+    // extend to next point
+    game.players.forEach((player) => {
+        if (player.alive)
+            player.extendsToNextPoint();
+            
+    });
 
-            if (player.alive)
+    // check for collisions
+    game.players.forEach((player) => {
+
+        if (player.alive)
+        {
+            for (const [id, otherPlayer] of game.players)
             {
-                for (const [id, otherPlayer] of game.players)
+                if (collideRay(player, <LiteRay_S>otherPlayer))
                 {
-                    if (collideRay(player, <LiteRay_S>otherPlayer))
-                    {
-                        player.alive = false;
-                        player.killedBy = id;
-                        console.log("COLLISION RAY");
-                    }   
-                }
-
-                for (const wall of game.stadium)
-                {
-                    if (player.alive)
-                    if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
-                    {
-                        player.alive = false;
-                        player.killedBy = "WALL";
-                        console.log("COLLISION WALL");
-                    }   
-                }
+                    player.alive = false;
+                    player.killedBy = id;
+                    console.log("COLLISION RAY");
+                }   
             }
-        });
-    }
+
+            for (const wall of game.stadium)
+            {
+                if (player.alive)
+                if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
+                {
+                    player.alive = false;
+                    player.killedBy = "WALL";
+                    console.log("COLLISION WALL");
+                }   
+            }
+        }
+    });
 }
 
-function userInteraction(): void
+function userInteraction(room: string): void
 {
-    for (const [room, game] of games)
-    {
-        game.players.forEach((player) => { player.keyControl(); })
-    }
+    if (!games.has(room))
+        return;      
+    const game = <Game_S>games.get(room);
+    game.players.forEach((player) => { player.keyControl(); })
 }
 
 function scoring(room: string)
 {
     if (!games.has(room))
-        return;
-        
+        return;      
     const game = <Game_S>games.get(room);
 
     // update players scores
     for (const [id, player] of game.players)
     {
         const idKiller : string = player.killedBy;
-        //console.log(`Player ${id}: killed by ${idKiller}`);
+        console.log(`Player ${id}: killed by ${idKiller}`);
 
         if (idKiller == id) // suicide
             player.score = Math.max(player.score - 1, 0);
+        else if (idKiller == "WALL")
+        {
+            // nop
+        }
         else if (idKiller.length > 0)
-            (<Player_S>game.players.get(idKiller)).score++;
+        {
+            if (game.players.has(idKiller))
+                (<Player_S>game.players.get(idKiller)).score++;
+        }
         
-        //console.log(`Player ${id}: ${player.score} points`);
+        //console.log(`${player.name}: ${player.score} point(s)`);
     }
     
     //
@@ -843,7 +867,7 @@ function newRound(room: string): void
         
     const game = <Game_S>games.get(room);
     game.round++;
-    console.log(`ROOM ${room} - ROUND ${game.round}`);
+    //console.log(`ROOM ${room} - ROUND ${game.round}`);
 
     newStadium(room);
     initPlayersPositions(room);

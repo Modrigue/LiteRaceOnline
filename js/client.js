@@ -344,12 +344,15 @@ function onPlay() {
     socket.emit('play', null, (response) => { });
 }
 /////////////////////////////////// GAME PAGE /////////////////////////////////
-socket.on('playGame', (params) => {
+socket.on('prepareGame', (params) => {
     document.getElementById('gameTitle').innerText
         = `Game ${params.room} - ${params.nbPlayersMax} players - ${params.nbRounds} rounds`;
     setVisible("pageWelcome", false);
     setVisible("pageGameSetup", false);
     setVisible("pageGame", true);
+    canvas.focus();
+    displayStatus = DisplayStatus.PREPARE;
+    requestAnimationFrame(renderOnly);
 });
 socket.on('createPlayers', (params) => {
     PLAYERS = new Map();
@@ -361,8 +364,7 @@ socket.on('createPlayers', (params) => {
             userInput(player, canvas);
         PLAYERS.set(playerParams.id, player);
     }
-    canvas.focus();
-    requestAnimationFrame(renderOnly);
+    displayStatus = DisplayStatus.PLAYING;
 });
 socket.on('updatePlayersPositions', (params) => {
     //console.log("updateplayers positions:", params);
@@ -378,6 +380,7 @@ const ctx = canvas.getContext("2d");
 //canvas.style.height = '600px';
 let PLAYERS = new Map();
 let STADIUM = new Array();
+let displayStatus = DisplayStatus.NONE;
 // for test purposes only
 joinTestRoom();
 function joinTestRoom() {
@@ -391,10 +394,21 @@ function renderOnly() {
 }
 function renderLoop() {
     ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-    PLAYERS.forEach((player) => { player.draw(ctx); });
-    STADIUM.forEach((wall) => { wall.draw(ctx); });
-    // display players' infos
-    //userInterface();
+    switch (displayStatus) {
+        case DisplayStatus.PREPARE:
+            ctx.textAlign = "center";
+            ctx.font = "48px Arial";
+            ;
+            ctx.fillStyle = "white";
+            ctx.fillText("PREPARE TO RACE!", 640 / 2, 200);
+            break;
+        case DisplayStatus.PLAYING:
+            PLAYERS.forEach((player) => { player.draw(ctx); });
+            STADIUM.forEach((wall) => { wall.draw(ctx); });
+            //// display players' infos
+            //userInterface();
+            break;
+    }
 }
 socket.on('stadium', (params) => {
     STADIUM = new Array();

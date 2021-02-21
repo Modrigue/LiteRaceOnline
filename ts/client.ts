@@ -464,7 +464,7 @@ function onPlay()
 /////////////////////////////////// GAME PAGE /////////////////////////////////
 
 
-socket.on('playGame', (params: {room: string, nbPlayersMax: string, nbRounds: string}) => {
+socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds: string}) => {
 
     (<HTMLParagraphElement>document.getElementById('gameTitle')).innerText
         = `Game ${params.room} - ${params.nbPlayersMax} players - ${params.nbRounds} rounds`;
@@ -472,6 +472,10 @@ socket.on('playGame', (params: {room: string, nbPlayersMax: string, nbRounds: st
     setVisible("pageWelcome", false);
     setVisible("pageGameSetup", false);
     setVisible("pageGame", true);
+
+    canvas.focus();
+    displayStatus = DisplayStatus.PREPARE;
+    requestAnimationFrame(renderOnly);
 });
 
 socket.on('createPlayers', (params: Array<{id: string, x1: number, y1: number, x2: number, y2: number, color: string}>) => {
@@ -489,8 +493,7 @@ socket.on('createPlayers', (params: Array<{id: string, x1: number, y1: number, x
         PLAYERS.set(playerParams.id, player);
     }
 
-    canvas.focus();
-    requestAnimationFrame(renderOnly);
+    displayStatus = DisplayStatus.PLAYING;
 });
 
 socket.on('updatePlayersPositions', (params: {id: string, points: Array<Point2>}) => {
@@ -513,6 +516,7 @@ const ctx = <CanvasRenderingContext2D>canvas.getContext("2d");
 
 let PLAYERS = new Map<string, Player>();
 let STADIUM = new Array<Segment>();
+let displayStatus: DisplayStatus = DisplayStatus.NONE;
 
 // for test purposes only
 joinTestRoom();
@@ -532,12 +536,24 @@ function renderOnly(): void
 function renderLoop(): void
 {
     ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-    PLAYERS.forEach((player) => { player.draw(ctx); })
 
-    STADIUM.forEach((wall) => { wall.draw(ctx); })
+    switch (displayStatus)
+    {
+        case DisplayStatus.PREPARE:
+            ctx.textAlign = "center";
+            ctx.font = "48px Arial";;
+            ctx.fillStyle = "white";
+            ctx.fillText("PREPARE TO RACE!", 640/2, 200);
+            break;
 
-    // display players' infos
-    //userInterface();
+        case DisplayStatus.PLAYING:
+            PLAYERS.forEach((player) => { player.draw(ctx); })
+            STADIUM.forEach((wall) => { wall.draw(ctx); })
+
+            //// display players' infos
+            //userInterface();
+            break;
+    }
 }
 
 socket.on('stadium', (params: Array<{x1: number, y1: number, x2: number, y2: number}>) => {
