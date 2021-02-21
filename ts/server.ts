@@ -707,7 +707,9 @@ function initPlayersPositions(room: string): void
         player.points = new Array<Point2>();
         player.addPoint(xStart, yStart);
         player.addPoint(xStart + dx, yStart);
+
         player.alive = true;
+        player.killedBy = "";
         
         // for tests only
         const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
@@ -771,26 +773,31 @@ function physicsLoop(): void
 
         // check for collisions
         game.players.forEach((player) => {
-            for (const [id, ray] of game.players)
-            {
-                if (player.alive)
-                if (collideRay(player, <LiteRay_S>ray))
-                {
-                    player.alive = false;
-                    console.log("COLLISION RAY");
-                }   
-            }
 
-            for (const wall of game.stadium)
+            if (player.alive)
             {
-                if (player.alive)
-                if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
+                for (const [id, otherPlayer] of game.players)
                 {
-                    player.alive = false;
-                    console.log("COLLISION WALL");
-                }   
+                    if (collideRay(player, <LiteRay_S>otherPlayer))
+                    {
+                        player.alive = false;
+                        player.killedBy = id;
+                        console.log("COLLISION RAY");
+                    }   
+                }
+
+                for (const wall of game.stadium)
+                {
+                    if (player.alive)
+                    if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
+                    {
+                        player.alive = false;
+                        player.killedBy = "WALL";
+                        console.log("COLLISION WALL");
+                    }   
+                }
             }
-        })
+        });
     }
 }
 
@@ -804,7 +811,24 @@ function userInteraction(): void
 
 function scoring(room: string)
 {
-    //console.log('ROOM ${room}- Scores:');
+    if (!games.has(room))
+        return;
+        
+    const game = <Game_S>games.get(room);
+
+    // update players scores
+    for (const [id, player] of game.players)
+    {
+        const idKiller : string = player.killedBy;
+        //console.log(`Player ${id}: killed by ${idKiller}`);
+
+        if (idKiller == id) // suicide
+            player.score = Math.max(player.score - 1, 0);
+        else if (idKiller.length > 0)
+            (<Player_S>game.players.get(idKiller)).score++;
+        
+        //console.log(`Player ${id}: ${player.score} points`);
+    }
     
     //
 

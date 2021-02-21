@@ -504,6 +504,7 @@ function initPlayersPositions(room) {
         player.addPoint(xStart, yStart);
         player.addPoint(xStart + dx, yStart);
         player.alive = true;
+        player.killedBy = "";
         // for tests only
         const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
         player.color = playersColors[player.no - 1];
@@ -549,19 +550,22 @@ function physicsLoop() {
         });
         // check for collisions
         game.players.forEach((player) => {
-            for (const [id, ray] of game.players) {
-                if (player.alive)
-                    if (collideRay(player, ray)) {
+            if (player.alive) {
+                for (const [id, otherPlayer] of game.players) {
+                    if (collideRay(player, otherPlayer)) {
                         player.alive = false;
+                        player.killedBy = id;
                         console.log("COLLISION RAY");
                     }
-            }
-            for (const wall of game.stadium) {
-                if (player.alive)
-                    if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
-                        player.alive = false;
-                        console.log("COLLISION WALL");
-                    }
+                }
+                for (const wall of game.stadium) {
+                    if (player.alive)
+                        if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
+                            player.alive = false;
+                            player.killedBy = "WALL";
+                            console.log("COLLISION WALL");
+                        }
+                }
             }
         });
     }
@@ -572,7 +576,19 @@ function userInteraction() {
     }
 }
 function scoring(room) {
-    //console.log('ROOM ${room}- Scores:');
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    // update players scores
+    for (const [id, player] of game.players) {
+        const idKiller = player.killedBy;
+        //console.log(`Player ${id}: killed by ${idKiller}`);
+        if (idKiller == id) // suicide
+            player.score = Math.max(player.score - 1, 0);
+        else if (idKiller.length > 0)
+            game.players.get(idKiller).score++;
+        //console.log(`Player ${id}: ${player.score} points`);
+    }
     //
     newRound(room);
     io.to(room).emit('displayScores', null);
