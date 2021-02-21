@@ -271,7 +271,8 @@ enum DisplayStatus_S
     PREPARE,
     POS_INIT,
     PLAYING,
-    SCORES
+    SCORES,
+    GAME_OVER
 }
 
 class Game_S
@@ -291,8 +292,10 @@ class Game_S
 let games = new Map<string, Game_S>();
 let clientNo: number = 0;
 
+// for tests only
 let gameTest = new Game_S();
 gameTest.nbPlayersMax = 2;
+gameTest.nbRounds = 3;
 games.set("TEST", gameTest);
 
 io.on('connection', connected);
@@ -873,7 +876,24 @@ function scoring(room: string)
         scoreParams.push({id: id, score: player.score, nbKills: player.nbKillsInRound});
     io.to(room).emit('displayScores', scoreParams);
 
-    setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN*1000);
+    // check if players have reached max. score
+    // TODO: handle ex-aequo
+    let winners = new Array<string>();
+    for (const [id, player] of game.players)
+        if (player.score >= game.nbRounds)
+            winners.push(id);
+
+    if (winners.length == 0)
+    {
+        // next round
+        setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN*1000);
+    }
+    else
+    {
+        //  display game over screen
+        game.displayStatus =DisplayStatus_S.GAME_OVER;
+        io.to(room).emit('gameOver', winners);
+    }
 }
 
 function newRound(room: string): void

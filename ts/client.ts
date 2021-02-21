@@ -463,54 +463,6 @@ function onPlay()
 }
 
 
-/////////////////////////////////// GAME PAGE /////////////////////////////////
-
-
-socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds: number}) => {
-
-    (<HTMLParagraphElement>document.getElementById('gameTitle')).innerText
-        = `Game ${params.room} - ${params.nbPlayersMax} players - ${params.nbRounds} rounds`;
-
-    setVisible("pageWelcome", false);
-    setVisible("pageGameSetup", false);
-    setVisible("pageGame", true);
-
-    nbRounds = params.nbRounds;
-
-    canvas.focus();
-    displayStatus = DisplayStatus.PREPARE;
-    requestAnimationFrame(renderOnly);
-});
-
-socket.on('createPlayers', (params: Array<{id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string}>) => {
-
-    PLAYERS = new Map<string, Player>();
-    for (const playerParams of params)
-    {
-        let player = new Player(playerParams.color);
-        player.name = playerParams.name;
-        player.addPoint(playerParams.x1, playerParams.y1);
-        player.addPoint(playerParams.x2, playerParams.y2);
-
-        if (playerParams.id === selfID)
-            userInput(player, canvas);
-
-        PLAYERS.set(playerParams.id, player);
-    }
-
-    displayStatus = DisplayStatus.PLAYING;
-});
-
-socket.on('updatePlayersPositions', (params: {id: string, points: Array<Point2>}) => {
-    //console.log("updateplayers positions:", params);
-    if (!PLAYERS.has(params.id))
-        return;
-
-    let player = <Player>PLAYERS.get(params.id);
-    player.points = params.points;
-});
-
-
 ///////////////////////////////////// GAME ////////////////////////////////////
 
 
@@ -523,6 +475,7 @@ let PLAYERS = new Map<string, Player>();
 let STADIUM = new Array<Segment>();
 let displayStatus: DisplayStatus = DisplayStatus.NONE;
 let nbRounds: number = 0;
+let winners = new Array<string>();
 
 // for test purposes only
 joinTestRoom();
@@ -561,13 +514,27 @@ function renderLoop(): void
             break;
 
         case DisplayStatus.SCORES:
+        case DisplayStatus.GAME_OVER:
             ctx.textAlign = "center";
             ctx.font = "32px Arial";
             ctx.fillStyle = "white";
-            ctx.fillText("SCORES", 640/2, 40);
 
             ctx.font = "24px Arial";
-            ctx.fillText(`Match in ${nbRounds} points`, 640/2, 80);
+            if (displayStatus == DisplayStatus.SCORES)
+            {
+                ctx.fillText("★  SCORES  ★", 640/2, 40);
+                ctx.fillText(`Match in ${nbRounds} points`, 640/2, 80);
+            }
+            else if (displayStatus == DisplayStatus.GAME_OVER)
+            {
+                ctx.fillText("★  GAME OVER  ★", 640/2, 40);
+
+                let winnersStr = "";
+                for (const winner of winners)
+                    winnersStr += ` ${winner}`; 
+
+                ctx.fillText(`Winners: ${winnersStr}`, 640/2, 80);
+            }
 
             let index = 0;
             ctx.font = "24px Arial";
@@ -612,4 +579,14 @@ socket.on('displayScores', (params: Array<{id: string, score: number, nbKills: n
     }
 
     displayStatus = DisplayStatus.SCORES;
+});
+
+socket.on('gameOver', (params: Array<string>) => {
+    //console.log("gameOver", params);
+    winners = new Array<string>();
+    for (const id of params)
+        if (PLAYERS.has(id))
+            winners.push((<Player>PLAYERS.get(id)).name);
+
+    displayStatus = DisplayStatus.GAME_OVER;
 });

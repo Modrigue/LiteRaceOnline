@@ -5,5 +5,6 @@ enum DisplayStatus
     PREPARE,
     POS_INIT,
     PLAYING,
-    SCORES
+    SCORES,
+    GAME_OVER
 }

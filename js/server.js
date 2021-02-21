@@ -188,6 +188,7 @@ var DisplayStatus_S;
     DisplayStatus_S[DisplayStatus_S["POS_INIT"] = 2] = "POS_INIT";
     DisplayStatus_S[DisplayStatus_S["PLAYING"] = 3] = "PLAYING";
     DisplayStatus_S[DisplayStatus_S["SCORES"] = 4] = "SCORES";
+    DisplayStatus_S[DisplayStatus_S["GAME_OVER"] = 5] = "GAME_OVER";
 })(DisplayStatus_S || (DisplayStatus_S = {}));
 class Game_S {
     constructor() {
@@ -203,8 +204,10 @@ class Game_S {
 }
 let games = new Map();
 let clientNo = 0;
+// for tests only
 let gameTest = new Game_S();
 gameTest.nbPlayersMax = 2;
+gameTest.nbRounds = 3;
 games.set("TEST", gameTest);
 io.on('connection', connected);
 setInterval(serverLoop, 1000 / 60);
@@ -627,7 +630,21 @@ function scoring(room) {
     for (const [id, player] of game.players)
         scoreParams.push({ id: id, score: player.score, nbKills: player.nbKillsInRound });
     io.to(room).emit('displayScores', scoreParams);
-    setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN * 1000);
+    // check if players have reached max. score
+    // TODO: handle ex-aequo
+    let winners = new Array();
+    for (const [id, player] of game.players)
+        if (player.score >= game.nbRounds)
+            winners.push(id);
+    if (winners.length == 0) {
+        // next round
+        setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN * 1000);
+    }
+    else {
+        //  display game over screen
+        game.displayStatus = DisplayStatus_S.GAME_OVER;
+        io.to(room).emit('gameOver', winners);
+    }
 }
 function newRound(room) {
     if (!games.has(room))
