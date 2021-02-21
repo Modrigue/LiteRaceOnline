@@ -39,13 +39,18 @@ function renderLoop() {
             let index = 0;
             ctx.font = "24px Arial";
             for (const [id, player] of PLAYERS) {
+                // name
                 ctx.fillStyle = player.color;
                 ctx.textAlign = "right";
-                ctx.fillText(`${player.name}  `, 640 / 2, 160 + 40 * index);
+                ctx.fillText(`${player.name}`, STADIUM_W_CLIENT / 2 - 100, 160 + 40 * index);
+                // score
+                ctx.textAlign = "center";
+                ctx.fillText(`${player.score} point(s)`, STADIUM_W_CLIENT / 2, 160 + 40 * index);
+                // kills
                 ctx.textAlign = "left";
                 const nbKillsStr = (player.nbKillsInRound > 0) ?
                     `+${player.nbKillsInRound}` : player.nbKillsInRound.toString();
-                ctx.fillText(`  ${player.score} point(s)   (${nbKillsStr})`, 640 / 2, 160 + 40 * index);
+                ctx.fillText(`(${nbKillsStr})`, STADIUM_W_CLIENT / 2 + 100, 160 + 40 * index);
                 index++;
             }
             break;

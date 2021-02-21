@@ -28,7 +28,6 @@ input:disabled, input[disabled], button:disabled, button[disabled], select:disab
 
 canvas
 {
-    border: 1px solid blueviolet;
     display: block;
     margin: 0 auto;
     background: black;
