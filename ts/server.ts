@@ -1,3 +1,6 @@
+const STADIUM_W = 640;
+const STADIUM_H = 480;
+
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 
@@ -247,6 +250,7 @@ class Player_S extends LiteRay_S
     ready: boolean = false;
 
     creator:  boolean = false;
+    killedBy: string = "";
 }
 
 enum GameStatus
@@ -263,6 +267,7 @@ class Game_S
     stadium: Array<Segment_S> = new Array<Segment_S>();
 
     nbRounds: number = 15;
+    round: number = 0;
 
     password: string = "";
     status: GameStatus = GameStatus.NONE;
@@ -637,19 +642,18 @@ function kickAllPlayersFromRoom(room: string)
 function playGame(room: string)
 {
     if (!games.has(room))
-        return
-
-    newStadium(room);
+        return;
     
     const game = <Game_S>games.get(room);
+    game.round = 0;
+    newRound(room);
+
     io.to(room).emit('playGame', {room: room, nbPlayersMax: game.nbPlayersMax, nbRounds : game.nbRounds});
     
-    // TODO: init players position at each round
-    initPlayersPositions(room);
+    // create players
     let playerParams = Array<{id: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
     for (const [id, player] of game.players)
     {
-        player.alive = true;
         playerParams.push({id: id, x1: player.points[0].x, y1: player.points[0].y,
             x2: player.points[1].x, y2: player.points[1].y, color: player.color});
     }
@@ -683,9 +687,6 @@ function initPlayersPositions(room: string): void
 
     const yDiff = 80;
 
-    const STADIUM_W = 640;
-    const STADIUM_H = 480;
-
     for (const [id, player] of game.players)
     {
         const side = (player.no % 2 == 0) ? 2 : 1; // TODO: handle teams
@@ -706,9 +707,10 @@ function initPlayersPositions(room: string): void
         player.points = new Array<Point2>();
         player.addPoint(xStart, yStart);
         player.addPoint(xStart + dx, yStart);
+        player.alive = true;
         
         // for tests only
-        const playersColors = ["yellow", "dodgerblue"];
+        const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
         player.color = playersColors[player.no - 1];
     }    
 }
@@ -741,6 +743,18 @@ function serverLoop()
 function gameLogic(room: string): void
 {
     // check remaining players
+    if (!games.has(room))
+    return;
+    const game = <Game_S>games.get(room);
+
+    let nbPlayersAlive = 0;
+    for (const [id, player] of game.players)
+        if (player.alive)
+            nbPlayersAlive++;
+
+    const nbPlayersLast = (game.nbPlayersMax > 1) ? 1 : 0; // TODO: handle teams
+    if (nbPlayersAlive <= nbPlayersLast)
+        scoring(room);
 }
 
 function physicsLoop(): void
@@ -788,6 +802,29 @@ function userInteraction(): void
     }
 }
 
+function scoring(room: string)
+{
+    //console.log('ROOM ${room}- Scores:');
+    
+    //
+
+    newRound(room);
+    io.to(room).emit('displayScores', null);
+}
+
+function newRound(room: string): void
+{
+    if (!games.has(room))
+        return;
+        
+    const game = <Game_S>games.get(room);
+    game.round++;
+    console.log(`ROOM ${room} - ROUND ${game.round}`);
+
+    newStadium(room);
+    initPlayersPositions(room);
+}
+
 function newStadium(room: string): void
 {
     if (!games.has(room))
@@ -796,10 +833,10 @@ function newStadium(room: string): void
     const game = <Game_S>games.get(room);
     game.stadium = new Array<Segment_S>();
 
-    let wall1 = new Segment_S(10, 0, 10, 480, "darkgrey");
-    let wall2 = new Segment_S(630, 0, 630, 480, "darkgrey");
-    let wall3 = new Segment_S(0, 10, 640, 10, "darkgrey");
-    let wall4 = new Segment_S(0, 400, 640, 400, "darkgrey");
+    let wall1 = new Segment_S(0, 0, 0, STADIUM_H, "darkgrey");
+    let wall2 = new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey");
+    let wall3 = new Segment_S(0, 0, STADIUM_W, 0, "darkgrey");
+    let wall4 = new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey");
 
     game.stadium.push(wall1);
     game.stadium.push(wall2);
