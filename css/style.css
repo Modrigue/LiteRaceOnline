@@ -23,6 +23,7 @@ input, button, select
 input:disabled, input[disabled], button:disabled, button[disabled], select:disabled, select[disabled]
 {
     cursor: default;
+    color: dimgray;
 }
 
 canvas

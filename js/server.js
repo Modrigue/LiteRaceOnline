@@ -1,6 +1,6 @@
 "use strict";
 const STADIUM_W = 640;
-const STADIUM_H = 480;
+const STADIUM_H = 360;
 const DURATION_PREPARE_SCREEN = 2; // in s
 const DURATION_SCORES_SCREEN = 3; // in s
 const DEPLOY = true;
@@ -289,6 +289,7 @@ function connected(socket) {
         player.name = params.name;
         player.room = room;
         player.no = getNextPlayerNoInRoom(room);
+        //player.color = '#' + Math.random().toString(16).substr(2,6); // random color
         game.players.set(socket.id, player);
         // enable play button if game already on
         const enablePlay = (game.status == GameStatus.PLAYING);
