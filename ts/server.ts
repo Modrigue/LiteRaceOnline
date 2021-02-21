@@ -7,6 +7,8 @@ const DURATION_SCORES_SCREEN = 3;  // in s
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 
+const FAST_TEST_MODE = false;
+
 
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
 
@@ -281,7 +283,7 @@ class Game_S
     players: Map<string, Player_S> = new Map<string, Player_S>();
     stadium: Array<Segment_S> = new Array<Segment_S>();
 
-    nbRounds: number = 15;
+    nbRounds: number = 10;
     round: number = 0;
 
     password: string = "";
@@ -292,11 +294,14 @@ class Game_S
 let games = new Map<string, Game_S>();
 let clientNo: number = 0;
 
-// for tests only
+// for fast test only
 let gameTest = new Game_S();
-gameTest.nbPlayersMax = 2;
-gameTest.nbRounds = 3;
-games.set("TEST", gameTest);
+if (FAST_TEST_MODE)
+{
+    gameTest.nbPlayersMax = 2;
+    gameTest.nbRounds = 3;
+    games.set("TEST", gameTest);
+}
 
 io.on('connection', connected);
 setInterval(serverLoop, 1000/60);
@@ -736,11 +741,14 @@ function initPlayersPositions(room: string): void
         player.nbKillsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
         
-        // for tests only
-        const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
-        const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
-        player.color = playersColors[player.no - 1];
-        player.name = playersNames[player.no - 1];
+        // for fast test only
+        if (FAST_TEST_MODE)
+        {
+            const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
+            const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
+            player.color = playersColors[player.no - 1];
+            player.name = playersNames[player.no - 1];
+        }
     }    
 }
 

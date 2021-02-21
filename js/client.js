@@ -144,9 +144,10 @@ socket.on('updatePlayersList', (params) => {
             divPlayerColor.id = `setup_player_color_${playerData.id}`;
             divPlayerColor.children.item(0).disabled = disableParam;
             // player team
+            const teamsEnabled = document.getElementById('gameHasTeams').checked;
             const divPlayerTeam = divPlayersList.children.item(4 * indexPlayerCur + 2);
             divPlayerTeam.id = `setup_player_team_${playerData.id}`;
-            divPlayerTeam.children.item(0).disabled = disableParam;
+            divPlayerTeam.children.item(0).disabled = (disableParam || !teamsEnabled);
             // player ready
             const divPlayerReady = divPlayersList.children.item(4 * indexPlayerCur + 3);
             divPlayerReady.id = `setup_player_ready_${playerData.id}`;
@@ -199,7 +200,7 @@ socket.on('updateRoomParams', (params) => {
             const divPlayerColor = document.createElement('div');
             const inputPlayerColor = document.createElement('input');
             inputPlayerColor.type = "color";
-            inputPlayerColor.value = "#0000ff";
+            inputPlayerColor.value = '#00000';
             inputPlayerColor.disabled = true;
             inputPlayerColor.addEventListener('change', setPlayerParams);
             divPlayerColor.appendChild(inputPlayerColor);
@@ -218,12 +219,13 @@ socket.on('updateRoomParams', (params) => {
             selectPlayerTeam.addEventListener('change', setPlayerParams);
             divPlayerTeam.appendChild(selectPlayerTeam);
             divPlayersList.appendChild(divPlayerTeam);
+            const teamsEnabled = document.getElementById('gameHasTeams').checked;
             // ready
             const divPlayerReady = document.createElement('div');
             const checkboxReady = document.createElement('input');
             checkboxReady.type = "checkbox";
             checkboxReady.textContent = "Ready";
-            checkboxReady.disabled = true;
+            checkboxReady.disabled = teamsEnabled;
             checkboxReady.addEventListener('change', setPlayerParams);
             divPlayerReady.appendChild(checkboxReady);
             divPlayersList.appendChild(divPlayerReady);
@@ -265,9 +267,10 @@ function setPlayerParams() {
     const team = (divPlayerTeam === null || divPlayerTeam === void 0 ? void 0 : divPlayerTeam.children.item(0)).value;
     const hasTeam = ((divPlayerTeam === null || divPlayerTeam === void 0 ? void 0 : divPlayerTeam.children.item(0)).selectedIndex >= 0);
     // get player ready
+    const teamsEnabled = document.getElementById('gameHasTeams').checked;
     const divPlayerReady = document.getElementById(`setup_player_ready_${selfID}`);
     const ready = (divPlayerReady === null || divPlayerReady === void 0 ? void 0 : divPlayerReady.children.item(0)).checked;
-    (divPlayerReady === null || divPlayerReady === void 0 ? void 0 : divPlayerReady.children.item(0)).disabled = !hasTeam;
+    (divPlayerReady === null || divPlayerReady === void 0 ? void 0 : divPlayerReady.children.item(0)).disabled = (!hasTeam && teamsEnabled);
     socket.emit('setPlayerParams', { color: color, team: team, ready: ready }, (response) => { });
 }
 // update player params
@@ -289,23 +292,24 @@ socket.on('updatePlayersParams', (params) => {
     }
     updatePlayButton();
     // game page
-    let team1Div = document.getElementById('gameTeam1');
-    let team2Div = document.getElementById('gameTeam2');
-    // remove former players params
-    removeAllChildren(team1Div);
-    removeAllChildren(team2Div);
-    // set players params
-    team1Div.textContent = "Team 1:";
-    team2Div.textContent = "Team 2:";
-    for (const playerParams of params) {
-        let playerText = document.createElement('span');
-        playerText.textContent = " " + playerParams.name;
-        playerText.style.color = playerParams.color;
-        if (playerParams.team == "1")
-            team1Div.appendChild(playerText);
-        else if (playerParams.team == "2")
-            team2Div.appendChild(playerText);
-    }
+    // let team1Div = <HTMLDivElement>document.getElementById('gameTeam1');
+    // let team2Div = <HTMLDivElement>document.getElementById('gameTeam2');
+    // // remove former players params
+    // removeAllChildren(team1Div);
+    // removeAllChildren(team2Div);
+    // // set players params
+    // team1Div.textContent = "Team 1:";
+    // team2Div.textContent = "Team 2:";
+    // for (const playerParams of params)
+    // {
+    //     let playerText: HTMLSpanElement = document.createElement('span');
+    //     playerText.textContent = " " + playerParams.name;
+    //     playerText.style.color = playerParams.color;
+    //     if (playerParams.team == "1")
+    //         team1Div.appendChild(playerText);
+    //     else if (playerParams.team == "2")
+    //         team2Div.appendChild(playerText);
+    // }
 });
 function updatePlayButton() {
     if (!creator && !reconnecting) {
@@ -324,22 +328,26 @@ function updatePlayButton() {
             nbPlayers++;
     }
     const nbPlayersCorrect = (nbPlayers == nbPlayersMax);
-    // get current players teams
-    let hasTeam1 = false;
-    let hasTeam2 = false;
-    let teamFilled = true;
-    for (const divPlayerTeam of divPlayersList.querySelectorAll("[id^='setup_player_team_']")) {
-        const team = divPlayerTeam.children.item(0).value;
-        if (team == "1")
-            hasTeam1 = true;
-        else if (team == "2")
-            hasTeam2 = true;
-        else
-            teamFilled = false;
+    // get current players teams if option set
+    let teamsCorrect = true;
+    const teamsEnabled = document.getElementById('gameHasTeams').checked;
+    if (teamsEnabled) {
+        let hasTeam1 = false;
+        let hasTeam2 = false;
+        let teamFilled = true;
+        for (const divPlayerTeam of divPlayersList.querySelectorAll("[id^='setup_player_team_']")) {
+            const team = divPlayerTeam.children.item(0).value;
+            if (team == "1")
+                hasTeam1 = true;
+            else if (team == "2")
+                hasTeam2 = true;
+            else
+                teamFilled = false;
+        }
+        teamsCorrect = (hasTeam1 && hasTeam2 && teamFilled);
+        if (nbPlayersMax == 1)
+            teamsCorrect = ((hasTeam1 || hasTeam2) && teamFilled);
     }
-    let teamsCorrect = (hasTeam1 && hasTeam2 && teamFilled);
-    if (nbPlayersMax == 1)
-        teamsCorrect = ((hasTeam1 || hasTeam2) && teamFilled);
     // get ready states
     let ready = true;
     for (const divPlayerReady of divPlayersList.querySelectorAll("[id^='setup_player_ready_']"))
@@ -360,7 +368,7 @@ let displayStatus = DisplayStatus.NONE;
 let nbRounds = 0;
 let winners = new Array();
 // for test purposes only
-joinTestRoom();
+//joinTestRoom();
 function joinTestRoom() {
     socket.emit('joinRoom', { name: "TEST", room: "TEST", password: "" }, (response) => { });
     socket.emit('setPlayerParams', { color: "yellow", team: "TEST", ready: true }, (response) => { });

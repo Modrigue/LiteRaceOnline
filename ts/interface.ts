@@ -135,6 +135,9 @@ function setEnabled(id: string, status: boolean): void
 
 function removeAllChildren(parent: any): void
 {
+    if (parent === null || parent === undefined)
+        return;
+
     while (parent.firstChild)
     {
         parent.removeChild(parent.firstChild);

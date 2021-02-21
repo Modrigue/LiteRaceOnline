@@ -1,17 +1,28 @@
 body
 {
+    background: black;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 24px;
+    color: cornflowerblue;
 }
 
 p
 {
-    font-size: 20px;
+    font-size: 32px;
     font-weight: bold;
 }
 
 input, button, select
 {
+    background: black;
+    font-size: 24px;
+    color: cornflowerblue; 
     cursor: pointer;
+}
+
+input:disabled, input[disabled], button:disabled, button[disabled], select:disabled, select[disabled]
+{
+    cursor: default;
 }
 
 canvas
@@ -36,7 +47,7 @@ canvas
 
 #gameNbPlayers, #gameNbRounds
 {
-    width: 36px;
+    width: 48px;
 }
 
 #userName, #createRoomName, #password

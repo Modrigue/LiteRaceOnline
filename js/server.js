@@ -5,6 +5,7 @@ const DURATION_PREPARE_SCREEN = 2; // in s
 const DURATION_SCORES_SCREEN = 3; // in s
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
+const FAST_TEST_MODE = false;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
 class Point2_S {
     constructor(x, y) {
@@ -195,7 +196,7 @@ class Game_S {
         this.nbPlayersMax = 2;
         this.players = new Map();
         this.stadium = new Array();
-        this.nbRounds = 15;
+        this.nbRounds = 10;
         this.round = 0;
         this.password = "";
         this.status = GameStatus.NONE;
@@ -204,11 +205,13 @@ class Game_S {
 }
 let games = new Map();
 let clientNo = 0;
-// for tests only
+// for fast test only
 let gameTest = new Game_S();
-gameTest.nbPlayersMax = 2;
-gameTest.nbRounds = 3;
-games.set("TEST", gameTest);
+if (FAST_TEST_MODE) {
+    gameTest.nbPlayersMax = 2;
+    gameTest.nbRounds = 3;
+    games.set("TEST", gameTest);
+}
 io.on('connection', connected);
 setInterval(serverLoop, 1000 / 60);
 //////////////////////////////// RECEIVE EVENTS ///////////////////////////////
@@ -526,11 +529,13 @@ function initPlayersPositions(room) {
         player.killedBy = "";
         player.nbKillsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
-        // for tests only
-        const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
-        const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
-        player.color = playersColors[player.no - 1];
-        player.name = playersNames[player.no - 1];
+        // for fast test only
+        if (FAST_TEST_MODE) {
+            const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
+            const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
+            player.color = playersColors[player.no - 1];
+            player.name = playersNames[player.no - 1];
+        }
     }
 }
 /////////////////////////////////////// LOOPS /////////////////////////////////

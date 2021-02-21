@@ -1,7 +1,7 @@
 socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds: number}) => {
 
-    (<HTMLParagraphElement>document.getElementById('gameTitle')).innerText
-        = `Game ${params.room} - ${params.nbPlayersMax} players - ${params.nbRounds} rounds`;
+    //(<HTMLParagraphElement>document.getElementById('gameTitle')).innerText
+    //    = `Game ${params.room} - ${params.nbPlayersMax} players - ${params.nbRounds} rounds`;
 
     setVisible("pageWelcome", false);
     setVisible("pageGameSetup", false);

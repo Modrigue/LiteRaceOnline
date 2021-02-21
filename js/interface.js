@@ -98,6 +98,8 @@ function setEnabled(id, status) {
     elem.disabled = !status;
 }
 function removeAllChildren(parent) {
+    if (parent === null || parent === undefined)
+        return;
     while (parent.firstChild) {
         parent.removeChild(parent.firstChild);
     }
