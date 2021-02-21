@@ -15,6 +15,7 @@ class Player extends LiteRay
 {
     name: string = "";
     score: number = 0;
+    nbKillsInRound: number = 0;
 }
 
 
@@ -577,7 +578,9 @@ function renderLoop(): void
                 ctx.fillText(`${player.name}  `, 640/2, 160 + 40*index);
 
                 ctx.textAlign = "left";
-                ctx.fillText(`  ${player.score} point(s)`, 640/2, 160 + 40*index);
+                const nbKillsStr: string = (player.nbKillsInRound > 0) ?
+                    `+${player.nbKillsInRound}` : player.nbKillsInRound.toString();
+                ctx.fillText(`  ${player.score} point(s)   (${nbKillsStr})`, 640/2, 160 + 40*index);
                 index++;
             }
 
@@ -596,7 +599,7 @@ socket.on('stadium', (params: Array<{x1: number, y1: number, x2: number, y2: num
     displayStatus = DisplayStatus.PLAYING;
 });
 
-socket.on('displayScores', (params: Array<{id: string, score: number}>) => {
+socket.on('displayScores', (params: Array<{id: string, score: number, nbKills: number}>) => {
     console.log("displayScores", params);
     for (const data of params)
     {
@@ -605,6 +608,7 @@ socket.on('displayScores', (params: Array<{id: string, score: number}>) => {
         let player = <Player>PLAYERS.get(data.id);
 
         player.score = data.score;
+        player.nbKillsInRound = data.nbKills;
     }
 
     displayStatus = DisplayStatus.SCORES;

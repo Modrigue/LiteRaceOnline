@@ -14,6 +14,7 @@ class Player extends LiteRay {
         super(...arguments);
         this.name = "";
         this.score = 0;
+        this.nbKillsInRound = 0;
     }
 }
 /////////////////////////// INTERACTION WITH SERVER ///////////////////////////
@@ -430,7 +431,9 @@ function renderLoop() {
                 ctx.textAlign = "right";
                 ctx.fillText(`${player.name}  `, 640 / 2, 160 + 40 * index);
                 ctx.textAlign = "left";
-                ctx.fillText(`  ${player.score} point(s)`, 640 / 2, 160 + 40 * index);
+                const nbKillsStr = (player.nbKillsInRound > 0) ?
+                    `+${player.nbKillsInRound}` : player.nbKillsInRound.toString();
+                ctx.fillText(`  ${player.score} point(s)   (${nbKillsStr})`, 640 / 2, 160 + 40 * index);
                 index++;
             }
             break;
@@ -451,6 +454,7 @@ socket.on('displayScores', (params) => {
             return;
         let player = PLAYERS.get(data.id);
         player.score = data.score;
+        player.nbKillsInRound = data.nbKills;
     }
     displayStatus = DisplayStatus.SCORES;
 });

@@ -172,6 +172,7 @@ class Player_S extends LiteRay_S {
         this.ready = false;
         this.creator = false;
         this.killedBy = "";
+        this.nbKillsInRound = 0;
     }
 }
 var GameStatus;
@@ -520,6 +521,7 @@ function initPlayersPositions(room) {
         player.addPoint(xStart + dx, yStart);
         player.alive = true;
         player.killedBy = "";
+        player.nbKillsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
         // for tests only
         const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
@@ -604,13 +606,18 @@ function scoring(room) {
         const idKiller = player.killedBy;
         //console.log(`Player ${id}: killed by ${idKiller}`);
         if (idKiller == id) // suicide
+         {
             player.score = Math.max(player.score - 1, 0);
+            player.nbKillsInRound--;
+        }
         else if (idKiller == "WALL") {
             // nop
         }
         else if (idKiller.length > 0) {
-            if (game.players.has(idKiller))
+            if (game.players.has(idKiller)) {
                 game.players.get(idKiller).score++;
+                game.players.get(idKiller).nbKillsInRound++;
+            }
         }
         //console.log(`${player.name}: ${player.score} point(s)`);
     }
@@ -618,7 +625,7 @@ function scoring(room) {
     game.displayStatus = DisplayStatus_S.SCORES;
     let scoreParams = new Array();
     for (const [id, player] of game.players)
-        scoreParams.push({ id: id, score: player.score });
+        scoreParams.push({ id: id, score: player.score, nbKills: player.nbKillsInRound });
     io.to(room).emit('displayScores', scoreParams);
     setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN * 1000);
 }
