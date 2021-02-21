@@ -13,7 +13,8 @@ let reconnecting: boolean = false;
 
 class Player extends LiteRay
 {
-    //
+    name: string = "";
+    score: number = 0;
 }
 
 
@@ -464,7 +465,7 @@ function onPlay()
 /////////////////////////////////// GAME PAGE /////////////////////////////////
 
 
-socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds: string}) => {
+socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds: number}) => {
 
     (<HTMLParagraphElement>document.getElementById('gameTitle')).innerText
         = `Game ${params.room} - ${params.nbPlayersMax} players - ${params.nbRounds} rounds`;
@@ -473,17 +474,20 @@ socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds:
     setVisible("pageGameSetup", false);
     setVisible("pageGame", true);
 
+    nbRounds = params.nbRounds;
+
     canvas.focus();
     displayStatus = DisplayStatus.PREPARE;
     requestAnimationFrame(renderOnly);
 });
 
-socket.on('createPlayers', (params: Array<{id: string, x1: number, y1: number, x2: number, y2: number, color: string}>) => {
+socket.on('createPlayers', (params: Array<{id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string}>) => {
 
     PLAYERS = new Map<string, Player>();
     for (const playerParams of params)
     {
         let player = new Player(playerParams.color);
+        player.name = playerParams.name;
         player.addPoint(playerParams.x1, playerParams.y1);
         player.addPoint(playerParams.x2, playerParams.y2);
 
@@ -517,6 +521,7 @@ const ctx = <CanvasRenderingContext2D>canvas.getContext("2d");
 let PLAYERS = new Map<string, Player>();
 let STADIUM = new Array<Segment>();
 let displayStatus: DisplayStatus = DisplayStatus.NONE;
+let nbRounds: number = 0;
 
 // for test purposes only
 joinTestRoom();
@@ -553,6 +558,30 @@ function renderLoop(): void
             //// display players' infos
             //userInterface();
             break;
+
+        case DisplayStatus.SCORES:
+            ctx.textAlign = "center";
+            ctx.font = "32px Arial";
+            ctx.fillStyle = "white";
+            ctx.fillText("SCORES", 640/2, 40);
+
+            ctx.font = "24px Arial";
+            ctx.fillText(`Match in ${nbRounds} points`, 640/2, 80);
+
+            let index = 0;
+            ctx.font = "24px Arial";
+            for (const [id, player] of PLAYERS)
+            {
+                ctx.fillStyle = player.color;
+                ctx.textAlign = "right";
+                ctx.fillText(`${player.name}  `, 640/2, 160 + 40*index);
+
+                ctx.textAlign = "left";
+                ctx.fillText(`  ${player.score} point(s)`, 640/2, 160 + 40*index);
+                index++;
+            }
+
+            break;
     }
 }
 
@@ -563,4 +592,20 @@ socket.on('stadium', (params: Array<{x1: number, y1: number, x2: number, y2: num
         const newWall: Segment = new Segment(coords.x1, coords.y1, coords.x2, coords.y2, "darkgrey");
         STADIUM.push(newWall);
     }
+
+    displayStatus = DisplayStatus.PLAYING;
+});
+
+socket.on('displayScores', (params: Array<{id: string, score: number}>) => {
+    console.log("displayScores", params);
+    for (const data of params)
+    {
+        if (!PLAYERS.has(data.id))
+            return;
+        let player = <Player>PLAYERS.get(data.id);
+
+        player.score = data.score;
+    }
+
+    displayStatus = DisplayStatus.SCORES;
 });

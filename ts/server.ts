@@ -1,6 +1,9 @@
 const STADIUM_W = 640;
 const STADIUM_H = 480;
 
+const DURATION_PREPARE_SCREEN = 2;  // in s
+const DURATION_SCORES_SCREEN = 3;  // in s
+
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 
@@ -663,16 +666,16 @@ function playGame(room: string)
     
     // create players
     setTimeout(() => {
-        let playerParams = Array<{id: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
+        let playerParams = Array<{id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
         for (const [id, player] of game.players)
         {
-            playerParams.push({id: id, x1: player.points[0].x, y1: player.points[0].y,
+            playerParams.push({id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
                 x2: player.points[1].x, y2: player.points[1].y, color: player.color});
         }
 
         io.to(room).emit('createPlayers', playerParams);
         game.displayStatus = DisplayStatus_S.PLAYING;
-    }, 2000);
+    }, DURATION_PREPARE_SCREEN*1000);
 }
 
 
@@ -729,7 +732,7 @@ function initPlayersPositions(room: string): void
         
         // for tests only
         const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
-        const playersNames = ["Player 1", "Player 2", "Player 3", "Player 4"];
+        const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
         player.color = playersColors[player.no - 1];
         player.name = playersNames[player.no - 1];
     }    
@@ -801,7 +804,7 @@ function physicsLoop(room: string): void
                 {
                     player.alive = false;
                     player.killedBy = id;
-                    console.log("COLLISION RAY");
+                    //console.log("COLLISION RAY");
                 }   
             }
 
@@ -812,7 +815,7 @@ function physicsLoop(room: string): void
                 {
                     player.alive = false;
                     player.killedBy = "WALL";
-                    console.log("COLLISION WALL");
+                    //console.log("COLLISION WALL");
                 }   
             }
         }
@@ -837,7 +840,7 @@ function scoring(room: string)
     for (const [id, player] of game.players)
     {
         const idKiller : string = player.killedBy;
-        console.log(`Player ${id}: killed by ${idKiller}`);
+        //console.log(`Player ${id}: killed by ${idKiller}`);
 
         if (idKiller == id) // suicide
             player.score = Math.max(player.score - 1, 0);
@@ -854,10 +857,14 @@ function scoring(room: string)
         //console.log(`${player.name}: ${player.score} point(s)`);
     }
     
-    //
+    // display scores
+    game.displayStatus = DisplayStatus_S.SCORES;
+    let scoreParams = new Array<{id: string, score: number}>();
+    for (const [id, player] of game.players)
+        scoreParams.push({id: id, score: player.score});
+    io.to(room).emit('displayScores', scoreParams);
 
-    newRound(room);
-    io.to(room).emit('displayScores', null);
+    setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN*1000);
 }
 
 function newRound(room: string): void
@@ -867,10 +874,11 @@ function newRound(room: string): void
         
     const game = <Game_S>games.get(room);
     game.round++;
-    //console.log(`ROOM ${room} - ROUND ${game.round}`);
+    console.log(`ROOM ${room} - ROUND ${game.round}`);
 
     newStadium(room);
     initPlayersPositions(room);
+    game.displayStatus = DisplayStatus_S.PLAYING;
 }
 
 function newStadium(room: string): void

@@ -10,6 +10,11 @@ let selfID;
 let creator = false;
 let reconnecting = false;
 class Player extends LiteRay {
+    constructor() {
+        super(...arguments);
+        this.name = "";
+        this.score = 0;
+    }
 }
 /////////////////////////// INTERACTION WITH SERVER ///////////////////////////
 socket.on('connect', () => {
@@ -350,6 +355,7 @@ socket.on('prepareGame', (params) => {
     setVisible("pageWelcome", false);
     setVisible("pageGameSetup", false);
     setVisible("pageGame", true);
+    nbRounds = params.nbRounds;
     canvas.focus();
     displayStatus = DisplayStatus.PREPARE;
     requestAnimationFrame(renderOnly);
@@ -358,6 +364,7 @@ socket.on('createPlayers', (params) => {
     PLAYERS = new Map();
     for (const playerParams of params) {
         let player = new Player(playerParams.color);
+        player.name = playerParams.name;
         player.addPoint(playerParams.x1, playerParams.y1);
         player.addPoint(playerParams.x2, playerParams.y2);
         if (playerParams.id === selfID)
@@ -381,6 +388,7 @@ const ctx = canvas.getContext("2d");
 let PLAYERS = new Map();
 let STADIUM = new Array();
 let displayStatus = DisplayStatus.NONE;
+let nbRounds = 0;
 // for test purposes only
 joinTestRoom();
 function joinTestRoom() {
@@ -408,6 +416,24 @@ function renderLoop() {
             //// display players' infos
             //userInterface();
             break;
+        case DisplayStatus.SCORES:
+            ctx.textAlign = "center";
+            ctx.font = "32px Arial";
+            ctx.fillStyle = "white";
+            ctx.fillText("SCORES", 640 / 2, 40);
+            ctx.font = "24px Arial";
+            ctx.fillText(`Match in ${nbRounds} points`, 640 / 2, 80);
+            let index = 0;
+            ctx.font = "24px Arial";
+            for (const [id, player] of PLAYERS) {
+                ctx.fillStyle = player.color;
+                ctx.textAlign = "right";
+                ctx.fillText(`${player.name}  `, 640 / 2, 160 + 40 * index);
+                ctx.textAlign = "left";
+                ctx.fillText(`  ${player.score} point(s)`, 640 / 2, 160 + 40 * index);
+                index++;
+            }
+            break;
     }
 }
 socket.on('stadium', (params) => {
@@ -416,5 +442,16 @@ socket.on('stadium', (params) => {
         const newWall = new Segment(coords.x1, coords.y1, coords.x2, coords.y2, "darkgrey");
         STADIUM.push(newWall);
     }
+    displayStatus = DisplayStatus.PLAYING;
+});
+socket.on('displayScores', (params) => {
+    console.log("displayScores", params);
+    for (const data of params) {
+        if (!PLAYERS.has(data.id))
+            return;
+        let player = PLAYERS.get(data.id);
+        player.score = data.score;
+    }
+    displayStatus = DisplayStatus.SCORES;
 });
 //# sourceMappingURL=client.js.map

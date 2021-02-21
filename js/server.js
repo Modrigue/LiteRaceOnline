@@ -1,6 +1,8 @@
 "use strict";
 const STADIUM_W = 640;
 const STADIUM_H = 480;
+const DURATION_PREPARE_SCREEN = 2; // in s
+const DURATION_SCORES_SCREEN = 3; // in s
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
@@ -476,12 +478,12 @@ function playGame(room) {
     setTimeout(() => {
         let playerParams = Array();
         for (const [id, player] of game.players) {
-            playerParams.push({ id: id, x1: player.points[0].x, y1: player.points[0].y,
+            playerParams.push({ id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
                 x2: player.points[1].x, y2: player.points[1].y, color: player.color });
         }
         io.to(room).emit('createPlayers', playerParams);
         game.displayStatus = DisplayStatus_S.PLAYING;
-    }, 2000);
+    }, DURATION_PREPARE_SCREEN * 1000);
 }
 function getNextPlayerNoInRoom(room) {
     if (!games.has(room))
@@ -521,7 +523,7 @@ function initPlayersPositions(room) {
         player.up = player.down = player.left = player.right = player.action = false;
         // for tests only
         const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
-        const playersNames = ["Player 1", "Player 2", "Player 3", "Player 4"];
+        const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
         player.color = playersColors[player.no - 1];
         player.name = playersNames[player.no - 1];
     }
@@ -573,7 +575,7 @@ function physicsLoop(room) {
                 if (collideRay(player, otherPlayer)) {
                     player.alive = false;
                     player.killedBy = id;
-                    console.log("COLLISION RAY");
+                    //console.log("COLLISION RAY");
                 }
             }
             for (const wall of game.stadium) {
@@ -581,7 +583,7 @@ function physicsLoop(room) {
                     if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
                         player.alive = false;
                         player.killedBy = "WALL";
-                        console.log("COLLISION WALL");
+                        //console.log("COLLISION WALL");
                     }
             }
         }
@@ -600,7 +602,7 @@ function scoring(room) {
     // update players scores
     for (const [id, player] of game.players) {
         const idKiller = player.killedBy;
-        console.log(`Player ${id}: killed by ${idKiller}`);
+        //console.log(`Player ${id}: killed by ${idKiller}`);
         if (idKiller == id) // suicide
             player.score = Math.max(player.score - 1, 0);
         else if (idKiller == "WALL") {
@@ -612,18 +614,23 @@ function scoring(room) {
         }
         //console.log(`${player.name}: ${player.score} point(s)`);
     }
-    //
-    newRound(room);
-    io.to(room).emit('displayScores', null);
+    // display scores
+    game.displayStatus = DisplayStatus_S.SCORES;
+    let scoreParams = new Array();
+    for (const [id, player] of game.players)
+        scoreParams.push({ id: id, score: player.score });
+    io.to(room).emit('displayScores', scoreParams);
+    setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN * 1000);
 }
 function newRound(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
     game.round++;
-    //console.log(`ROOM ${room} - ROUND ${game.round}`);
+    console.log(`ROOM ${room} - ROUND ${game.round}`);
     newStadium(room);
     initPlayersPositions(room);
+    game.displayStatus = DisplayStatus_S.PLAYING;
 }
 function newStadium(room) {
     if (!games.has(room))
