@@ -494,7 +494,7 @@ socket.on('createPlayers', (params: Array<{id: string, x1: number, y1: number, x
 });
 
 socket.on('updatePlayersPositions', (params: {id: string, points: Array<Point2>}) => {
-//console.log("update pos ", params);
+    //console.log("updateplayers positions:", params);
     if (!PLAYERS.has(params.id))
         return;
 

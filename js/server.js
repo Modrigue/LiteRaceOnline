@@ -188,7 +188,7 @@ class Game_S {
 let games = new Map();
 let clientNo = 0;
 let gameTest = new Game_S();
-gameTest.nbPlayersMax = 1;
+gameTest.nbPlayersMax = 2;
 games.set("TEST", gameTest);
 io.on('connection', connected);
 setInterval(serverLoop, 1000 / 60);
@@ -214,12 +214,12 @@ function connected(socket) {
         creator.creator = true;
         creator.name = params.name;
         creator.room = room;
-        creator.no = 0;
         let newGame = new Game_S();
         newGame.players.set(socket.id, creator);
         newGame.password = params.password;
         newGame.status = GameStatus.SETUP;
         games.set(room, newGame);
+        creator.no = 1;
         socket.join(room);
         // send updated rooms list to all clients
         updateRoomsList();
@@ -266,7 +266,7 @@ function connected(socket) {
         let player = new Player_S();
         player.name = params.name;
         player.room = room;
-        player.no = game.players.size;
+        player.no = getNextPlayerNoInRoom(room);
         game.players.set(socket.id, player);
         // enable play button if game already on
         const enablePlay = (game.status == GameStatus.PLAYING);
@@ -318,6 +318,8 @@ function connected(socket) {
             return;
         if (games.has(room)) {
             const game = games.get(room);
+            if (game.players.size < game.nbPlayersMax)
+                return;
             switch (game.status) {
                 case GameStatus.SETUP:
                     // start new game
@@ -330,6 +332,7 @@ function connected(socket) {
                     playGame(room);
                 default:
                     // for tests only
+                    game.status = GameStatus.PLAYING;
                     playGame(room);
             }
         }
@@ -455,15 +458,54 @@ function playGame(room) {
     const game = games.get(room);
     io.to(room).emit('playGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
     // TODO: init players position at each round
+    initPlayersPositions(room);
     let playerParams = Array();
     for (const [id, player] of game.players) {
-        player.addPoint(20, 240);
-        player.addPoint(21, 240);
         player.alive = true;
         playerParams.push({ id: id, x1: player.points[0].x, y1: player.points[0].y,
             x2: player.points[1].x, y2: player.points[1].y, color: player.color });
     }
     io.to(room).emit('createPlayers', playerParams);
+}
+function getNextPlayerNoInRoom(room) {
+    if (!games.has(room))
+        return -1;
+    const game = games.get(room);
+    let playerNo = 1;
+    for (const [id, player] of game.players) {
+        if (player.no <= 0)
+            return playerNo;
+        playerNo++;
+    }
+    return playerNo;
+}
+function initPlayersPositions(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    const yDiff = 80;
+    const STADIUM_W = 640;
+    const STADIUM_H = 480;
+    for (const [id, player] of game.players) {
+        const side = (player.no % 2 == 0) ? 2 : 1; // TODO: handle teams
+        const nbPlayersInSide = (side == 1) ?
+            Math.ceil(game.nbPlayersMax / 2) :
+            Math.floor(game.nbPlayersMax / 2);
+        const noPlayerInTeam = Math.floor((player.no - 1) / 2) + 1;
+        const xStart = (side == 1) ? 50 : STADIUM_W - 50;
+        let yMin = (nbPlayersInSide % 2 == 0) ?
+            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * yDiff :
+            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * yDiff;
+        const yStart = yMin + (noPlayerInTeam - 1) * yDiff;
+        //console.log('PLAYER ', (player.no, noPlayerInTeam, yMin, xStart, yStart);
+        const dx = (side == 1) ? 1 : -1;
+        player.points = new Array();
+        player.addPoint(xStart, yStart);
+        player.addPoint(xStart + dx, yStart);
+        // for tests only
+        const playersColors = ["yellow", "dodgerblue"];
+        player.color = playersColors[player.no - 1];
+    }
 }
 /////////////////////////////////////// LOOPS /////////////////////////////////
 function serverLoop() {
@@ -471,8 +513,7 @@ function serverLoop() {
     physicsLoop();
     // send players positions to clients
     for (const [room, game] of games) {
-        //if (gameIsOn.get(room))
-        {
+        if (game.status == GameStatus.PLAYING) {
             gameLogic(room);
             for (let [id, player] of game.players) {
                 io.to(room).emit('updatePlayersPositions', {
@@ -481,10 +522,6 @@ function serverLoop() {
                 });
             }
         }
-        // else
-        // {
-        //     //
-        // }
     }
 }
 function gameLogic(room) {

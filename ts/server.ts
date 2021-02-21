@@ -272,7 +272,7 @@ let games = new Map<string, Game_S>();
 let clientNo: number = 0;
 
 let gameTest = new Game_S();
-gameTest.nbPlayersMax = 1;
+gameTest.nbPlayersMax = 2;
 games.set("TEST", gameTest);
 
 io.on('connection', connected);
@@ -311,13 +311,14 @@ function connected(socket: any)
         creator.creator = true;
         creator.name = params.name;
         creator.room = room;
-        creator.no = 0;
 
         let newGame = new Game_S();
         newGame.players.set(socket.id, creator);
         newGame.password = params.password;
         newGame.status = GameStatus.SETUP;
         games.set(room, newGame);
+        creator.no = 1;
+
         socket.join(room);
 
         // send updated rooms list to all clients
@@ -378,7 +379,7 @@ function connected(socket: any)
         let player = new Player_S();
         player.name = params.name;
         player.room = room;
-        player.no = game.players.size;
+        player.no =  getNextPlayerNoInRoom(room);
 
         game.players.set(socket.id, player);
 
@@ -447,6 +448,9 @@ function connected(socket: any)
         if (games.has(room))
         {
             const game = <Game_S>games.get(room);
+            if (game.players.size < game.nbPlayersMax)
+                return;
+
             switch (game.status)
             {
                 case GameStatus.SETUP:
@@ -462,6 +466,7 @@ function connected(socket: any)
 
                 default:
                     // for tests only
+                    game.status = GameStatus.PLAYING;
                     playGame(room);
             }
         }
@@ -640,11 +645,10 @@ function playGame(room: string)
     io.to(room).emit('playGame', {room: room, nbPlayersMax: game.nbPlayersMax, nbRounds : game.nbRounds});
     
     // TODO: init players position at each round
+    initPlayersPositions(room);
     let playerParams = Array<{id: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
     for (const [id, player] of game.players)
     {
-        player.addPoint(20, 240);
-        player.addPoint(21, 240);
         player.alive = true;
         playerParams.push({id: id, x1: player.points[0].x, y1: player.points[0].y,
             x2: player.points[1].x, y2: player.points[1].y, color: player.color});
@@ -652,6 +656,62 @@ function playGame(room: string)
     io.to(room).emit('createPlayers', playerParams);
 }
 
+
+function getNextPlayerNoInRoom(room: string): number
+{
+    if (!games.has(room))
+        return -1;
+    const game = <Game_S>games.get(room);
+
+    let playerNo = 1;
+    for (const [id, player] of game.players)
+    {
+        if (player.no <= 0)
+            return playerNo;
+        
+        playerNo++;
+    }
+
+    return playerNo;
+}
+
+function initPlayersPositions(room: string): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game_S>games.get(room);
+
+    const yDiff = 80;
+
+    const STADIUM_W = 640;
+    const STADIUM_H = 480;
+
+    for (const [id, player] of game.players)
+    {
+        const side = (player.no % 2 == 0) ? 2 : 1; // TODO: handle teams
+        const nbPlayersInSide = (side == 1) ?
+            Math.ceil(game.nbPlayersMax / 2) :
+            Math.floor(game.nbPlayersMax / 2);
+        const noPlayerInTeam = Math.floor((player.no - 1) / 2) + 1;
+
+        const xStart = (side == 1) ? 50 : STADIUM_W - 50;
+        let yMin = (nbPlayersInSide % 2 == 0) ?
+            STADIUM_H/2 - (Math.floor(nbPlayersInSide/2) - 0.5)*yDiff :
+            STADIUM_H/2 - Math.floor(nbPlayersInSide/2)*yDiff;
+        const yStart = yMin + (noPlayerInTeam - 1)*yDiff;
+        //console.log('PLAYER ', (player.no, noPlayerInTeam, yMin, xStart, yStart);
+
+        const dx = (side == 1) ? 1 : -1;
+        
+        player.points = new Array<Point2>();
+        player.addPoint(xStart, yStart);
+        player.addPoint(xStart + dx, yStart);
+        
+        // for tests only
+        const playersColors = ["yellow", "dodgerblue"];
+        player.color = playersColors[player.no - 1];
+    }    
+}
 
 /////////////////////////////////////// LOOPS /////////////////////////////////
 
@@ -663,7 +723,7 @@ function serverLoop()
     // send players positions to clients
     for (const [room, game] of games)
     {
-        //if (gameIsOn.get(room))
+        if (game.status == GameStatus.PLAYING)
         {
             gameLogic(room);
             for (let [id, player] of game.players)
@@ -674,10 +734,7 @@ function serverLoop()
                 });
             }
         }
-        // else
-        // {
-        //     //
-        // }
+
     }
 }
 

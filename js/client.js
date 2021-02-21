@@ -365,7 +365,7 @@ socket.on('createPlayers', (params) => {
     requestAnimationFrame(renderOnly);
 });
 socket.on('updatePlayersPositions', (params) => {
-    //console.log("update pos ", params);
+    //console.log("updateplayers positions:", params);
     if (!PLAYERS.has(params.id))
         return;
     let player = PLAYERS.get(params.id);
