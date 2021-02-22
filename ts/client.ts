@@ -1,5 +1,5 @@
-const STADIUM_W_CLIENT = 640;
-const STADIUM_H_CLIENT = 360;
+let STADIUM_W_CLIENT = 640;
+let STADIUM_H_CLIENT = 360;
 
 const DEPLOY_CLIENT: boolean = true;
 
@@ -43,6 +43,14 @@ function joinTestRoom()
 
 socket.on('connect', () => {
     selfID = socket.id;
+});
+
+socket.on('gamesParams', (params: any) => {
+    STADIUM_W_CLIENT = params.stadiumW;
+    STADIUM_H_CLIENT = params.stadiumH;
+
+    canvas.width = STADIUM_W_CLIENT;
+    canvas.height = STADIUM_H_CLIENT;
 });
 
 

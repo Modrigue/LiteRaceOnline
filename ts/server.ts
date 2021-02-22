@@ -315,8 +315,7 @@ function connected(socket: any)
     console.log(`Client '${socket.id}' connected`);
     updateRoomsList();
 
-    const room = 1;
-    //const nbPlayersReady = getNbPlayersReadyInRoom(room);
+    io.emit('gamesParams', {stadiumW: STADIUM_W, stadiumH: STADIUM_H});
     
     // create new room
     socket.on('createNewRoom', (params: {name: string, room: string, password: string}, response: any) =>

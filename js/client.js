@@ -1,6 +1,6 @@
 "use strict";
-const STADIUM_W_CLIENT = 640;
-const STADIUM_H_CLIENT = 360;
+let STADIUM_W_CLIENT = 640;
+let STADIUM_H_CLIENT = 360;
 const DEPLOY_CLIENT = true;
 let socket;
 if (DEPLOY_CLIENT)
@@ -37,6 +37,12 @@ function joinTestRoom() {
 }
 socket.on('connect', () => {
     selfID = socket.id;
+});
+socket.on('gamesParams', (params) => {
+    STADIUM_W_CLIENT = params.stadiumW;
+    STADIUM_H_CLIENT = params.stadiumH;
+    canvas.width = STADIUM_W_CLIENT;
+    canvas.height = STADIUM_H_CLIENT;
 });
 socket.on('stadium', (params) => {
     STADIUM = new Array();

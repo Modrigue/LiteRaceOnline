@@ -218,8 +218,7 @@ setInterval(serverLoop, 1000 / 60);
 function connected(socket) {
     console.log(`Client '${socket.id}' connected`);
     updateRoomsList();
-    const room = 1;
-    //const nbPlayersReady = getNbPlayersReadyInRoom(room);
+    io.emit('gamesParams', { stadiumW: STADIUM_W, stadiumH: STADIUM_H });
     // create new room
     socket.on('createNewRoom', (params, response) => {
         const room = params.room;
