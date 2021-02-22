@@ -21,18 +21,20 @@ input, button, select
     border-radius: 16px;
 }
 
-input:disabled, input[disabled],
-button:disabled, button[disabled],
-select:disabled, select[disabled]
-{
-    cursor: default;
-    color: dimgray;
-}
-
 button:hover
 {
     background-color: dodgerblue;
     color: white;
+}
+
+input:disabled, input[disabled],
+button:disabled, button[disabled],
+select:disabled, select[disabled]
+{
+    background: black;
+    color: cornflowerblue; 
+    cursor: default;
+    color: dimgray;
 }
 
 canvas
