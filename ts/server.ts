@@ -9,7 +9,7 @@ const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 
 // for etsts purposes only
-const FAST_TEST_MODE = true;
+const FAST_TEST_MODE = false;
 const FAST_TEST_NB_PLAYERS = 2;
 const FAST_TEST_NB_ROUNDS = 3;
 
@@ -109,6 +109,10 @@ class LiteRay_S
         if (!this._points || this._points.length == 0)
             return;
 
+        // check if last point is in stadium
+        if (this.extendsToModulo())
+            return;
+
         const pointNext: Point2_S = this.getNextPoint();
         if (pointNext.x === -Infinity || pointNext.y === -Infinity)
             return;
@@ -117,6 +121,45 @@ class LiteRay_S
         const nbPoints = this._points.length;
         this._points[nbPoints - 1].x = pointNext.x;
         this._points[nbPoints - 1].y = pointNext.y;
+    }
+
+    extendsToModulo(): boolean
+    {
+        const pointLast = this.getLastPoint();
+        if (pointLast.x < 0)
+        {
+            const dx = Math.min(1, Math.abs(0 - pointLast.x));
+            this.addPoint(Infinity, Infinity); // hole
+            this.addPoint(STADIUM_W, pointLast.y);
+            this.addPoint(STADIUM_W - dx, pointLast.y);
+            return true;
+        }
+        else if (pointLast.x > STADIUM_W)
+        {
+            const dx = Math.min(1, Math.abs(pointLast.x - STADIUM_W));
+            this.addPoint(Infinity, Infinity); // hole
+            this.addPoint(0, pointLast.y);
+            this.addPoint(0 + dx, pointLast.y);
+            return true;
+        }
+        else if (pointLast.y < 0)
+        {
+            const dy = Math.min(1, Math.abs(0 - pointLast.y));
+            this.addPoint(Infinity, Infinity); // hole
+            this.addPoint(pointLast.x, STADIUM_H);
+            this.addPoint(pointLast.x, STADIUM_H - dy);
+            return true;
+        }
+        else if (pointLast.y > STADIUM_H)
+        {
+            const dy = Math.min(1, Math.abs(pointLast.y - STADIUM_H));
+            this.addPoint(Infinity, Infinity); // hole
+            this.addPoint(pointLast.x, 0);
+            this.addPoint(pointLast.x, 0 + 0 + dy);
+            return true;
+        }
+
+        return false;
     }
 
     direction(): {dirx: number, diry: number}
@@ -146,14 +189,13 @@ class LiteRay_S
         const nbPoints = this._points.length;
         const pointLast = this._points[nbPoints - 1];
 
-
         if(this.up && diry == 0)
             this.addPoint(pointLast.x, pointLast.y - this.speed);
         else if(this.down && diry == 0)
             this.addPoint(pointLast.x, pointLast.y + this.speed);
         else if(this.left && dirx == 0)
             this.addPoint(pointLast.x - this.speed, pointLast.y);
-            else if(this.right && dirx == 0)
+        else if(this.right && dirx == 0)
             this.addPoint(pointLast.x + this.speed, pointLast.y);
     }
 }
@@ -222,15 +264,19 @@ function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
     let pointPrev = new Point2_S(-1, -1);
     for (const pointCur of ray2.points)
     {
-        // skip own ray current segment
-        if (isOwnRay && index == ray2.points.length - 1)
-            continue;
-
-        if (index > 0)
+        if (pointCur.x != Infinity && pointCur.y != Infinity
+         && pointPrev.x != Infinity && pointPrev.y != Infinity)
         {
-            const collide = collideSegment(ray1, pointPrev.x, pointPrev.y, pointCur.x, pointCur.y);
-            if (collide)
-                return true;
+            // skip own ray current segment
+            if (isOwnRay && index == ray2.points.length - 1)
+                continue;
+
+            if (index > 0)
+            {
+                const collide = collideSegment(ray1, pointPrev.x, pointPrev.y, pointCur.x, pointCur.y);
+                if (collide)
+                    return true;
+            }
         }
 
         pointPrev.x = pointCur.x;
@@ -964,15 +1010,26 @@ function newStadium(room: string): void
     const game = <Game_S>games.get(room);
     game.stadium = new Array<Segment_S>();
 
-    let wall1 = new Segment_S(0, 0, 0, STADIUM_H, "darkgrey");
-    let wall2 = new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey");
-    let wall3 = new Segment_S(0, 0, STADIUM_W, 0, "darkgrey");
-    let wall4 = new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey");
+    const percentWallV = Math.floor(100*Math.random());
+    const percentWallH = Math.floor(100*Math.random());
+    const wallsV: boolean = (percentWallV >= 50);
+    const wallsH: boolean = (percentWallH >= 50);;
 
-    game.stadium.push(wall1);
-    game.stadium.push(wall2);
-    game.stadium.push(wall3);
-    game.stadium.push(wall4);
+    if (wallsV)
+    {
+        let wallLeft = new Segment_S(0, 0, 0, STADIUM_H, "darkgrey");
+        let wallRight = new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey");
+        game.stadium.push(wallLeft);
+        game.stadium.push(wallRight);
+    }
+
+    if (wallsH)
+    {
+        let wallTop = new Segment_S(0, 0, STADIUM_W, 0, "darkgrey");
+        let wallBottom = new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey");
+        game.stadium.push(wallTop);
+        game.stadium.push(wallBottom);
+    }
 
     sendStadium(room);
 }

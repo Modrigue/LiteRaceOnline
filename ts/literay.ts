@@ -104,10 +104,24 @@ class LiteRay
         ctx.beginPath();
         ctx.strokeStyle = this.color;
         ctx.moveTo(this._points[0].x, this._points[0].y); // first point
+        let hasHole: boolean = false;
         for (let i = 1; i < nbPoints; i++)
         {
             const pointCur: Point2 = this._points[i];
-            ctx.lineTo(pointCur.x, pointCur.y); // 2nd to (n-1)th point(s)
+            if (pointCur.x === Infinity || pointCur.y === Infinity
+             || pointCur.x === null || pointCur.y === null) // hole
+            {
+                hasHole = true;
+                continue;
+            }
+
+            if (hasHole)
+            {
+                ctx.moveTo(pointCur.x, pointCur.y);
+                hasHole = false;
+            }
+            else
+                ctx.lineTo(pointCur.x, pointCur.y);
         }
         ctx.stroke();
         ctx.closePath();
