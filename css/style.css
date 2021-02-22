@@ -18,12 +18,21 @@ input, button, select
     font-size: 24px;
     color: cornflowerblue; 
     cursor: pointer;
+    border-radius: 16px;
 }
 
-input:disabled, input[disabled], button:disabled, button[disabled], select:disabled, select[disabled]
+input:disabled, input[disabled],
+button:disabled, button[disabled],
+select:disabled, select[disabled]
 {
     cursor: default;
     color: dimgray;
+}
+
+button:hover
+{
+    background-color: dodgerblue;
+    color: white;
 }
 
 canvas
