@@ -8,7 +8,10 @@ const DURATION_GAME_OVER_SCREEN = 10;
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 
-const FAST_TEST_MODE = false;
+// for etsts purposes only
+const FAST_TEST_MODE = true;
+const FAST_TEST_NB_PLAYERS = 2;
+const FAST_TEST_NB_ROUNDS = 3;
 
 
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
@@ -163,25 +166,44 @@ function collideSegment(ray: LiteRay_S, x1: number, y1: number, x2: number, y2: 
 
     if (xr == -Infinity || yr == -Infinity)
         return false;
-    
+
+    for (let i = ray.speed - 1; i >= 0; i--)
+    {
+        const xrCur = xr - i*ray.direction().dirx;
+        const yrCur = yr - i*ray.direction().diry;
+        
+        const collisionCur = pointOnSegment(xrCur, yrCur, x1, y1, x2, y2);
+        if (collisionCur)
+        {
+            pointLast.x = xrCur - ray.direction().dirx;
+            pointLast.y = yrCur - ray.direction().diry;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// returns true if point (x, y) is on segment
+// TODO: use Bresenham's algorithm or SAT?
+function pointOnSegment(x: number, y: number, x1: number, y1: number, x2: number, y2: number): boolean
+{
     // check if last point is in bounding box
     const xSegMin = Math.min(x1, x2);
     const xSegMax = Math.max(x1, x2);
     const ySegMin = Math.min(y1, y2);
     const ySegMax = Math.max(y1, y2);
     const isInBoundingBox: boolean =
-        (xSegMin <= xr && xr <= xSegMax) && (ySegMin <= yr && yr <= ySegMax);
+        (xSegMin <= x && x <= xSegMax) && (ySegMin <= y && y <= ySegMax);
     if (!isInBoundingBox)
         return false;
 
-    // TODO: use Bresenham's algorithm or SAT?
-    // check if last ray point is on segment
     // point on segment iff. (yr - y1)/(y2 - y1) = (xr - x1)/(x2 - x1)
-    // <=> (yr - y1)*(x2 - x1) = (xr - x1)*(y2 - y1) to avoir divisions by 0
+    // <=> (yr - y1)*(x2 - x1) = (xr - x1)*(y2 - y1) to avoid divisions by 0
     // <=> | (yr - y1)*(x2 - x1) - (xr - x1)*(y2 - y1) | < threshold to handle pixels
-    const dist = Math.abs((yr - y1)*(x2 - x1) - (xr - x1)*(y2 - y1));
+    const dist = Math.abs((y - y1)*(x2 - x1) - (x - x1)*(y2 - y1));
     
-    return (dist <= 480 /* canvas height */);
+    return (dist <= STADIUM_H);
 }
 
 function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
@@ -300,8 +322,8 @@ let clientNo: number = 0;
 let gameTest = new Game_S();
 if (FAST_TEST_MODE)
 {
-    gameTest.nbPlayersMax = 2;
-    gameTest.nbRounds = 2;
+    gameTest.nbPlayersMax = FAST_TEST_NB_PLAYERS;
+    gameTest.nbRounds = FAST_TEST_NB_ROUNDS;
     games.set("TEST", gameTest);
 }
 
@@ -761,6 +783,23 @@ function initPlayersPositions(room: string): void
     }    
 }
 
+function initPlayersSpeeds(room: string): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game_S>games.get(room);
+
+    const percent = Math.floor(100*Math.random());
+    let speed = 1;
+    if (percent >= 80)
+        speed = 3;
+    else if (percent >= 50)
+        speed = 2;
+
+    for (const [id, player] of game.players)
+        player.speed = speed;
+}
+
 /////////////////////////////////////// LOOPS /////////////////////////////////
 
 function serverLoop()
@@ -816,6 +855,7 @@ function physicsLoop(room: string): void
 
         if (player.alive)
         {
+            // TODO: handle drawing at collisions
             for (const [id, otherPlayer] of game.players)
             {
                 if (collideRay(player, <LiteRay_S>otherPlayer))
@@ -912,6 +952,7 @@ function newRound(room: string): void
 
     newStadium(room);
     initPlayersPositions(room);
+    initPlayersSpeeds(room);
     game.displayStatus = DisplayStatus_S.PLAYING;
 }
 
