@@ -2,6 +2,12 @@
 let STADIUM_W_CLIENT = 640;
 let STADIUM_H_CLIENT = 360;
 const DEPLOY_CLIENT = true;
+const imgPrepare = new Image();
+const imgScores = new Image();
+const imgGameOver = new Image();
+imgPrepare.src = "./img/prepare_to_race.png";
+imgScores.src = "./img/scores.png";
+imgGameOver.src = "./img/game_over.png";
 let socket;
 if (DEPLOY_CLIENT)
     socket = io.connect();

@@ -1,7 +1,7 @@
 "use strict";
 const STADIUM_W = 640;
 const STADIUM_H = 360;
-const DURATION_PREPARE_SCREEN = 2; // in s
+const DURATION_PREPARE_SCREEN = 3; // in s
 const DURATION_SCORES_SCREEN = 3;
 const DURATION_GAME_OVER_SCREEN = 10;
 const DEPLOY = true;
@@ -114,6 +114,7 @@ function collideSegment(ray, x1, y1, x2, y2) {
     const isInBoundingBox = (xSegMin <= xr && xr <= xSegMax) && (ySegMin <= yr && yr <= ySegMax);
     if (!isInBoundingBox)
         return false;
+    // TODO: use Bresenham's algorithm or SAT?
     // check if last ray point is on segment
     // point on segment iff. (yr - y1)/(y2 - y1) = (xr - x1)/(x2 - x1)
     // <=> (yr - y1)*(x2 - x1) = (xr - x1)*(y2 - y1) to avoir divisions by 0
@@ -210,7 +211,7 @@ let clientNo = 0;
 let gameTest = new Game_S();
 if (FAST_TEST_MODE) {
     gameTest.nbPlayersMax = 2;
-    gameTest.nbRounds = 3;
+    gameTest.nbRounds = 2;
     games.set("TEST", gameTest);
 }
 io.on('connection', connected);
@@ -355,8 +356,10 @@ function connected(socket) {
                     playNewGame(room);
                 default:
                     // for tests only
-                    game.status = GameStatus.PLAYING;
-                    playNewGame(room);
+                    if (FAST_TEST_MODE) {
+                        game.status = GameStatus.PLAYING;
+                        playNewGame(room);
+                    }
             }
         }
         updateRoomsList();
@@ -387,7 +390,7 @@ function connected(socket) {
         const game = games.get(room);
         if (game.players !== null && game.players.has(socket.id))
             game.players.delete(socket.id);
-        //deleteEmptyRooms();
+        deleteEmptyRooms();
         updateRoomsList();
         updatePlayersList(room);
         updatePlayersParams(room);
@@ -479,8 +482,8 @@ function playNewGame(room) {
         return;
     const game = games.get(room);
     game.round = 0;
-    game.displayStatus = DisplayStatus_S.PREPARE;
     newRound(room);
+    game.displayStatus = DisplayStatus_S.PREPARE;
     game.round = 0;
     io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
     // create players
@@ -551,12 +554,8 @@ function serverLoop() {
         userInteraction(room);
         physicsLoop(room);
         gameLogic(room);
-        for (let [id, player] of game.players) {
-            io.to(room).emit('updatePlayersPositions', {
-                id: id,
-                points: player.points
-            });
-        }
+        for (let [id, player] of game.players)
+            io.to(room).emit('updatePlayersPositions', { id: id, points: player.points });
     }
 }
 function gameLogic(room) {
