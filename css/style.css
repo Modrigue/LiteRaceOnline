@@ -27,6 +27,11 @@ button:hover
     color: white;
 }
 
+input:focus, button:focus, select:focus
+{
+    outline: 0;
+}
+
 input:disabled, input[disabled],
 button:disabled, button[disabled],
 select:disabled, select[disabled]

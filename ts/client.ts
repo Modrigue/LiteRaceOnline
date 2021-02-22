@@ -32,25 +32,28 @@ let displayStatus: DisplayStatus = DisplayStatus.NONE;
 let nbRounds: number = 0;
 let winners = new Array<string>();
 
-// for test purposes only
-//joinTestRoom();
+joinTestRoom();
 function joinTestRoom()
 {
     socket.emit('joinRoom', {name: "TEST", room: "TEST", password: ""}, (response: any) => {});
-    socket.emit('setPlayerParams', {color: "yellow", team: "TEST", ready: true}, (response: any) => {});
-    onPlay();    
+    socket.emit('setPlayerParams', {color: "#ffff00", team: "TEST", ready: true}, (response: any) => {});
+    socket.emit('play', null, (response: any) => {});  
 }
 
 socket.on('connect', () => {
     selfID = socket.id;
 });
 
-socket.on('gamesParams', (params: any) => {
+socket.on('gamesParams', (params: {stadiumW: number, stadiumH: number, fastTestMode: boolean}) => {
     STADIUM_W_CLIENT = params.stadiumW;
     STADIUM_H_CLIENT = params.stadiumH;
 
     canvas.width = STADIUM_W_CLIENT;
     canvas.height = STADIUM_H_CLIENT;
+
+    // for test purposes only
+    //if (params.fastTestMode)
+    //    joinTestRoom();
 });
 
 
@@ -66,7 +69,7 @@ socket.on('stadium', (params: Array<{x1: number, y1: number, x2: number, y2: num
 });
 
 socket.on('displayScores', (params: Array<{id: string, score: number, nbKills: number}>) => {
-    console.log("displayScores", params);
+    //console.log("displayScores", params);
     for (const data of params)
     {
         if (!PLAYERS.has(data.id))

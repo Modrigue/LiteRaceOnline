@@ -2,7 +2,8 @@ const STADIUM_W = 640;
 const STADIUM_H = 360;
 
 const DURATION_PREPARE_SCREEN = 2;  // in s
-const DURATION_SCORES_SCREEN = 3;   // in s
+const DURATION_SCORES_SCREEN = 3;
+const DURATION_GAME_OVER_SCREEN = 10;
 
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
@@ -55,7 +56,7 @@ class LiteRay_S
 
     constructor()
     {
-        this.color = "white";
+        this.color = "#8888ff";
         this.speed = 1;
 
         this.up = false;
@@ -246,7 +247,6 @@ else
 
 class Player_S extends LiteRay_S
 {
-    score: number = 0;
     no: number = 0;
     name: string = "";
 
@@ -256,6 +256,7 @@ class Player_S extends LiteRay_S
 
     creator:  boolean = false;
 
+    score: number = 0;
     killedBy: string = "";
     nbKillsInRound: number = 0;
 }
@@ -315,7 +316,7 @@ function connected(socket: any)
     console.log(`Client '${socket.id}' connected`);
     updateRoomsList();
 
-    io.emit('gamesParams', {stadiumW: STADIUM_W, stadiumH: STADIUM_H});
+    io.emit('gamesParams', {stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_MODE});
     
     // create new room
     socket.on('createNewRoom', (params: {name: string, room: string, password: string}, response: any) =>
@@ -485,17 +486,17 @@ function connected(socket: any)
                     // start new game
                     console.log(`Client '${socket.id}' starts game '${room}'`);
                     game.status = GameStatus.PLAYING;
-                    playGame(room);
+                    playNewGame(room);
 
                 case GameStatus.PLAYING:
                     // join started game
                     console.log(`Client '${socket.id}' joins started game '${room}'`);
-                    playGame(room);
+                    playNewGame(room);
 
                 default:
                     // for tests only
                     game.status = GameStatus.PLAYING;
-                    playGame(room);
+                    playNewGame(room);
             }
         }
 
@@ -662,7 +663,7 @@ function kickAllPlayersFromRoom(room: string)
     io.to(room).emit('kickFromRoom', {room: room, id: ""});
 }
 
-function playGame(room: string)
+function playNewGame(room: string)
 {
     if (!games.has(room))
         return;
@@ -672,13 +673,17 @@ function playGame(room: string)
     game.displayStatus = DisplayStatus_S.PREPARE;
     newRound(room);
 
+    game.round = 0;
     io.to(room).emit('prepareGame', {room: room, nbPlayersMax: game.nbPlayersMax, nbRounds : game.nbRounds});
-    
+
     // create players
     setTimeout(() => {
         let playerParams = Array<{id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
         for (const [id, player] of game.players)
         {
+            player.score = player.nbKillsInRound = 0;
+            player.killedBy = "";
+
             playerParams.push({id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
                 x2: player.points[1].x, y2: player.points[1].y, color: player.color});
         }
@@ -744,7 +749,7 @@ function initPlayersPositions(room: string): void
         // for fast test only
         if (FAST_TEST_MODE)
         {
-            const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
+            const playersColors = ["#ffff00", "#8888ff", "#ff0000", "#00ff00"];
             const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
             player.color = playersColors[player.no - 1];
             player.name = playersNames[player.no - 1];
@@ -892,16 +897,9 @@ function scoring(room: string)
             winners.push(id);
 
     if (winners.length == 0)
-    {
-        // next round
         setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN*1000);
-    }
     else
-    {
-        //  display game over screen
-        game.displayStatus =DisplayStatus_S.GAME_OVER;
-        io.to(room).emit('gameOver', winners);
-    }
+        gameOver(room, winners);
 }
 
 function newRound(room: string): void
@@ -950,6 +948,26 @@ function sendStadium(room: string): void
         stadiumParams.push({x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y});
 
     io.to(room).emit('stadium', stadiumParams);
+}
+
+function gameOver(room: string, winners: Array<string>): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game_S>games.get(room);
+
+    //  display game over screen
+    game.displayStatus = DisplayStatus_S.GAME_OVER;
+    io.to(room).emit('gameOver', winners);
+
+    // go back to setup page
+    setTimeout(() => {
+        game.status = GameStatus.SETUP;
+        for (const [id, player] of game.players)
+            player.ready = false;
+
+        io.to(room).emit('displaySetup', {room: room, resetReady: true});
+    }, DURATION_GAME_OVER_SCREEN*1000); 
 }
 
 

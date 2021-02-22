@@ -2,7 +2,8 @@
 const STADIUM_W = 640;
 const STADIUM_H = 360;
 const DURATION_PREPARE_SCREEN = 2; // in s
-const DURATION_SCORES_SCREEN = 3; // in s
+const DURATION_SCORES_SCREEN = 3;
+const DURATION_GAME_OVER_SCREEN = 10;
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 const FAST_TEST_MODE = false;
@@ -25,7 +26,7 @@ class Segment_S {
 class LiteRay_S {
     constructor() {
         this._points = new Array();
-        this.color = "white";
+        this.color = "#8888ff";
         this.speed = 1;
         this.up = false;
         this.down = false;
@@ -165,13 +166,13 @@ else {
 class Player_S extends LiteRay_S {
     constructor() {
         super(...arguments);
-        this.score = 0;
         this.no = 0;
         this.name = "";
         this.room = "";
         this.team = "";
         this.ready = false;
         this.creator = false;
+        this.score = 0;
         this.killedBy = "";
         this.nbKillsInRound = 0;
     }
@@ -218,7 +219,7 @@ setInterval(serverLoop, 1000 / 60);
 function connected(socket) {
     console.log(`Client '${socket.id}' connected`);
     updateRoomsList();
-    io.emit('gamesParams', { stadiumW: STADIUM_W, stadiumH: STADIUM_H });
+    io.emit('gamesParams', { stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_MODE });
     // create new room
     socket.on('createNewRoom', (params, response) => {
         const room = params.room;
@@ -347,15 +348,15 @@ function connected(socket) {
                     // start new game
                     console.log(`Client '${socket.id}' starts game '${room}'`);
                     game.status = GameStatus.PLAYING;
-                    playGame(room);
+                    playNewGame(room);
                 case GameStatus.PLAYING:
                     // join started game
                     console.log(`Client '${socket.id}' joins started game '${room}'`);
-                    playGame(room);
+                    playNewGame(room);
                 default:
                     // for tests only
                     game.status = GameStatus.PLAYING;
-                    playGame(room);
+                    playNewGame(room);
             }
         }
         updateRoomsList();
@@ -473,18 +474,21 @@ function kickPlayerFromRoom(room, id) {
 function kickAllPlayersFromRoom(room) {
     io.to(room).emit('kickFromRoom', { room: room, id: "" });
 }
-function playGame(room) {
+function playNewGame(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
     game.round = 0;
     game.displayStatus = DisplayStatus_S.PREPARE;
     newRound(room);
+    game.round = 0;
     io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
     // create players
     setTimeout(() => {
         let playerParams = Array();
         for (const [id, player] of game.players) {
+            player.score = player.nbKillsInRound = 0;
+            player.killedBy = "";
             playerParams.push({ id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
                 x2: player.points[1].x, y2: player.points[1].y, color: player.color });
         }
@@ -531,7 +535,7 @@ function initPlayersPositions(room) {
         player.up = player.down = player.left = player.right = player.action = false;
         // for fast test only
         if (FAST_TEST_MODE) {
-            const playersColors = ["yellow", "dodgerblue", "red", "lightgreen"];
+            const playersColors = ["#ffff00", "#8888ff", "#ff0000", "#00ff00"];
             const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
             player.color = playersColors[player.no - 1];
             player.name = playersNames[player.no - 1];
@@ -641,15 +645,10 @@ function scoring(room) {
     for (const [id, player] of game.players)
         if (player.score >= game.nbRounds)
             winners.push(id);
-    if (winners.length == 0) {
-        // next round
+    if (winners.length == 0)
         setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN * 1000);
-    }
-    else {
-        //  display game over screen
-        game.displayStatus = DisplayStatus_S.GAME_OVER;
-        io.to(room).emit('gameOver', winners);
-    }
+    else
+        gameOver(room, winners);
 }
 function newRound(room) {
     if (!games.has(room))
@@ -684,6 +683,21 @@ function sendStadium(room) {
     for (const wall of game.stadium)
         stadiumParams.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y });
     io.to(room).emit('stadium', stadiumParams);
+}
+function gameOver(room, winners) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    //  display game over screen
+    game.displayStatus = DisplayStatus_S.GAME_OVER;
+    io.to(room).emit('gameOver', winners);
+    // go back to setup page
+    setTimeout(() => {
+        game.status = GameStatus.SETUP;
+        for (const [id, player] of game.players)
+            player.ready = false;
+        io.to(room).emit('displaySetup', { room: room, resetReady: true });
+    }, DURATION_GAME_OVER_SCREEN * 1000);
 }
 ////////////////////////////////////// HELPERS ////////////////////////////////
 // delete empty rooms

@@ -1,3 +1,6 @@
+//////////////////////////////////// EVENTS ///////////////////////////////////
+
+
 socket.on('kickFromRoom', (params: {room: string, id: string}) => {
     if (params.id.length == 0 /* all */ || params.id == selfID)
     {
@@ -13,26 +16,6 @@ socket.on('kickFromRoom', (params: {room: string, id: string}) => {
 
     updatePlayButton();
 });
-
-function onNumberInput(): void
-{
-    // limit nb. of characters to max length
-    if (this.value.length > this.maxLength)
-        this.value = this.value.slice(0, this.maxLength);
-
-    // update max. nb. players in room
-    const imputNbPlayers = <HTMLInputElement>document.getElementById('gameNbPlayers');
-    const inputNbRounds = <HTMLInputElement>document.getElementById('gameNbRounds');
-    if (!imputNbPlayers.disabled && !inputNbRounds.disabled)
-    {
-        const nbPlayersMax = <number>parseInt(imputNbPlayers.value);
-        const nbRounds = <number>parseInt(inputNbRounds.value);
-        if (nbPlayersMax == 0 || nbRounds == 0)
-            return; // nop
-
-        socket.emit('setRoomParams', {nbPlayersMax: nbPlayersMax, nbRounds: nbRounds}, (response: any) => {});
-    }
-}
 
 socket.on('updatePlayersList', (params: Array<{id: string, name: string}>) => {
 
@@ -70,6 +53,7 @@ socket.on('updatePlayersList', (params: Array<{id: string, name: string}>) => {
             // player ready
             const divPlayerReady = <HTMLDivElement>divPlayersList.children.item(4*indexPlayerCur + 3);
             divPlayerReady.id = `setup_player_ready_${playerData.id}`;
+            (<HTMLInputElement>divPlayerReady.children.item(0)).disabled = disableParam;
             
             indexPlayerCur++;
         }
@@ -133,7 +117,7 @@ socket.on('updateRoomParams', (params: {room: string, nbPlayersMax: number, nbRo
             const divPlayerColor = <HTMLDivElement>document.createElement('div');
             const inputPlayerColor = <HTMLInputElement>document.createElement('input');
             inputPlayerColor.type = "color";
-            inputPlayerColor.value = '#00000';
+            inputPlayerColor.value = '#8888ff';
             inputPlayerColor.disabled = true;
             inputPlayerColor.addEventListener('change', setPlayerParams);
             divPlayerColor.appendChild(inputPlayerColor);
@@ -227,7 +211,12 @@ socket.on('updatePlayersParams', (params:  Array<{id: string, name: string, colo
     // setup page
     for (const playerParams of params)
     {
-        const id = playerParams.id;
+        const id = playerParams.id; 
+
+        // update player name color
+        let divPlayerName = document.getElementById(`setup_player_name_${id}`);
+        (<HTMLInputElement>divPlayerName?.children.item(0)).style.color = playerParams.color;
+    
         if (id == selfID)
             continue; // nop
 
@@ -269,6 +258,52 @@ socket.on('updatePlayersParams', (params:  Array<{id: string, name: string, colo
     //         team2Div.appendChild(playerText);
     // }
 });
+
+socket.on('displaySetup', (response: {room: string, resetReady: boolean}) => {
+    
+    (<HTMLParagraphElement>document.getElementById('gameSetupTitle')).innerText
+        = `Game ${response.room} setup`;
+    setVisible("pageWelcome", false);
+    setVisible("pageGameSetup", true);
+    setVisible("pageGame", false);
+
+    setEnabled("gameNbPlayers", creator);
+    setEnabled("gameNbRounds", creator);
+    setEnabled("buttonPlay", false);
+    (<HTMLButtonElement>document.getElementById('buttonPlay')).innerText = "START GAME";
+
+    // reset ready checkboxes if option set
+    if (response.resetReady)
+    {
+        const divPlayersList = <HTMLDivElement>document.getElementById('playersList');
+        for (const divPlayerReady of divPlayersList.querySelectorAll("[id^='setup_player_ready_']"))
+            (<HTMLInputElement>divPlayerReady.children.item(0)).checked = false;
+    }
+});
+
+
+////////////////////////////////////// GUI ////////////////////////////////////
+
+
+function onNumberInput(): void
+{    
+    // limit nb. of characters to max length
+    if (this.value.length > this.maxLength)
+        this.value = this.value.slice(0, this.maxLength);
+
+    // update max. nb. players in room
+    const imputNbPlayers = <HTMLInputElement>document.getElementById('gameNbPlayers');
+    const inputNbRounds = <HTMLInputElement>document.getElementById('gameNbRounds');
+    if (!imputNbPlayers.disabled && !inputNbRounds.disabled)
+    {
+        const nbPlayersMax = <number>parseInt(imputNbPlayers.value);
+        const nbRounds = <number>parseInt(inputNbRounds.value);
+        if (nbPlayersMax == 0 || nbRounds == 0)
+            return; // nop
+
+        socket.emit('setRoomParams', {nbPlayersMax: nbPlayersMax, nbRounds: nbRounds}, (response: any) => {});
+    }
+}
 
 function updatePlayButton()
 {
