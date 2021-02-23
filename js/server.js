@@ -257,6 +257,7 @@ class Game_S {
         this.stadium = new Array();
         this.nbRounds = 10;
         this.round = 0;
+        this.resetOnKilled = false;
         this.password = "";
         this.status = GameStatus.NONE;
         this.displayStatus = DisplayStatus_S.NONE;
@@ -647,7 +648,6 @@ function initPlayersPositions(room) {
                         let xMin = (nbPlayersInSide % 2 == 0) ?
                             STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
                             STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
-                        console.log(player.no, nbPlayersInSide, xMin);
                         const xStart = xMin + (noPlayerInSide - 1) * dxy;
                         const yStart = (side == 3) ?
                             STADIUM_H / 2 - (STADIUM_H / 2 - 20) : STADIUM_H / 2 + (STADIUM_H / 2 - 20);
@@ -662,7 +662,7 @@ function initPlayersPositions(room) {
             }
         case 4: // reverse around
             {
-                const dxy = Math.ceil(game.nbPlayersMax / 4);
+                const dxy = 2 * Math.ceil(game.nbPlayersMax / 4);
                 const remain = (game.nbPlayersMax % 4);
                 for (const [id, player] of game.players) {
                     const side = (player.no % 4); // left / right / top / bottom
@@ -783,6 +783,8 @@ function physicsLoop(room) {
                         //console.log("COLLISION WALL");
                     }
             }
+            if (game.resetOnKilled && !player.alive)
+                player.reset();
         }
     });
 }
@@ -842,6 +844,7 @@ function newRound(room) {
     newStadium(room);
     initPlayersPositions(room);
     initPlayersSpeeds(room);
+    game.resetOnKilled = (Math.floor(100 * Math.random()) >= 50);
     game.displayStatus = DisplayStatus_S.PLAYING;
 }
 function newStadium(room) {

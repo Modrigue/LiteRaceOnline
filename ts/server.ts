@@ -360,6 +360,7 @@ class Game_S
 
     nbRounds: number = 10;
     round: number = 0;
+    resetOnKilled: boolean = false;
 
     password: string = "";
     status: GameStatus = GameStatus.NONE;
@@ -886,7 +887,6 @@ function initPlayersPositions(room: string): void
                     let xMin = (nbPlayersInSide % 2 == 0) ?
                         STADIUM_W/2 - (Math.floor(nbPlayersInSide/2) - 0.5)*dxy :
                         STADIUM_W/2 - Math.floor(nbPlayersInSide/2)*dxy;
-                        console.log(player.no, nbPlayersInSide, xMin);
                         
                     const xStart = xMin + (noPlayerInSide - 1)*dxy;
                     const yStart = (side == 3) ?
@@ -904,7 +904,7 @@ function initPlayersPositions(room: string): void
 
         case 4: // reverse around
         {
-            const dxy = Math.ceil(game.nbPlayersMax / 4);
+            const dxy = 2*Math.ceil(game.nbPlayersMax / 4);
             const remain = (game.nbPlayersMax % 4);
             for (const [id, player] of game.players)
             {
@@ -1060,6 +1060,9 @@ function physicsLoop(room: string): void
                     //console.log("COLLISION WALL");
                 }   
             }
+
+            if (game.resetOnKilled && !player.alive)
+                player.reset();
         }
     });
 }
@@ -1137,6 +1140,7 @@ function newRound(room: string): void
     newStadium(room);
     initPlayersPositions(room);
     initPlayersSpeeds(room);
+    game.resetOnKilled = (Math.floor(100*Math.random()) >= 50);
     game.displayStatus = DisplayStatus_S.PLAYING;
 }
 
