@@ -68,6 +68,8 @@ function renderLoop(): void
                 else if (scoreCur == scoreMax && scoreMax > 0)
                     scoreMaxPlayers.push(id);
             }
+            if (scoreMaxPlayers.length == PLAYERS.size)
+                scoreMaxPlayers = new Array<string>();
 
             // display name, score, kills
             let index = 0;

@@ -54,6 +54,8 @@ function renderLoop() {
                 else if (scoreCur == scoreMax && scoreMax > 0)
                     scoreMaxPlayers.push(id);
             }
+            if (scoreMaxPlayers.length == PLAYERS.size)
+                scoreMaxPlayers = new Array();
             // display name, score, kills
             let index = 0;
             ctx.font = "24px Arial";
