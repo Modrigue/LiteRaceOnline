@@ -1060,11 +1060,14 @@ function physicsLoop(room: string): void
                     //console.log("COLLISION WALL");
                 }   
             }
-
-            if (game.resetOnKilled && !player.alive)
-                player.reset();
         }
     });
+
+    if (game.resetOnKilled)
+        game.players.forEach((player) => {
+            if (!player.alive)
+                player.reset();
+        });
 }
 
 function userInteraction(room: string): void
