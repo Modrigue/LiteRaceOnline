@@ -8,10 +8,11 @@ const DURATION_GAME_OVER_SCREEN = 10;
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 
-// for etsts purposes only
+// for tests purposes only
 const FAST_TEST_MODE = false;
-const FAST_TEST_NB_PLAYERS = 2;
-const FAST_TEST_NB_ROUNDS = 10;
+const FAST_TEST_NB_PLAYERS = 4;
+const FAST_TEST_NB_ROUNDS = 3;
+const FAST_TEST_HAS_TEAMS = false;
 
 
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
@@ -356,6 +357,8 @@ class Game_S
 {
     nbPlayersMax: number = 2;
     players: Map<string, Player_S> = new Map<string, Player_S>();
+    hasTeams: boolean = false;
+
     stadium: Array<Segment_S> = new Array<Segment_S>();
 
     nbRounds: number = 10;
@@ -376,6 +379,7 @@ if (FAST_TEST_MODE)
 {
     gameTest.nbPlayersMax = FAST_TEST_NB_PLAYERS;
     gameTest.nbRounds = FAST_TEST_NB_ROUNDS;
+    gameTest.hasTeams = FAST_TEST_HAS_TEAMS;
     games.set("TEST", gameTest);
 }
 
@@ -963,6 +967,9 @@ function initPlayersPositions(room: string): void
             const playersColors = ["#ffff00", "#0000ff", "#ff0000", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
             player.color = playersColors[(player.no - 1) % playersColors.length];
             player.name = `Player ${player.no}`;
+
+            if (FAST_TEST_HAS_TEAMS)
+                player.team = (player.no % 2 == 1) ? "Team 1" : "Team 2";
         }
     }    
 }
@@ -1088,6 +1095,11 @@ function scoring(room: string)
     for (const [id, player] of game.players)
     {
         const idKiller : string = player.killedBy;
+
+        const hasKillerPlayer = (idKiller.length > 0 && idKiller != "WALL")
+        let killer = null;
+        if (hasKillerPlayer && game.players.has(idKiller))
+            killer = <Player_S>game.players.get(idKiller);
         //console.log(`Player ${id}: killed by ${idKiller}`);
 
         if (idKiller == id) // suicide
@@ -1095,17 +1107,19 @@ function scoring(room: string)
             player.score = Math.max(player.score - 1, 0);
             player.nbKillsInRound--;
         }
+        else if (game.hasTeams && killer !== null && player.team == killer.team)
+        {
+            killer.score = Math.max(player.score - 1, 0);
+            killer.nbKillsInRound--;
+        }
         else if (idKiller == "WALL")
         {
             // nop
         }
-        else if (idKiller.length > 0)
+        else if (killer != null && idKiller.length > 0)
         {
-            if (game.players.has(idKiller))
-            {
-                (<Player_S>game.players.get(idKiller)).score++;
-                (<Player_S>game.players.get(idKiller)).nbKillsInRound++;
-            }
+            killer.score++;
+            killer.nbKillsInRound++;
         }
         
         //console.log(`${player.name}: ${player.score} point(s)`);
@@ -1113,17 +1127,39 @@ function scoring(room: string)
     
     // display scores
     game.displayStatus = DisplayStatus_S.SCORES;
-    let scoreParams = new Array<{id: string, score: number, nbKills: number}>();
+    let scoreParams = new Array<{id: string, team: string, score: number, nbKills: number}>();
     for (const [id, player] of game.players)
-        scoreParams.push({id: id, score: player.score, nbKills: player.nbKillsInRound});
+        scoreParams.push({id: id, team: player.team, score: player.score, nbKills: player.nbKillsInRound});
     io.to(room).emit('displayScores', scoreParams);
 
-    // check if players have reached max. score
+    // check if player / teams have reached max. score
     // TODO: handle ex-aequo
     let winners = new Array<string>();
-    for (const [id, player] of game.players)
-        if (player.score >= game.nbRounds)
-            winners.push(id);
+
+    if (game.hasTeams)
+    {
+        // compute teams' scores
+        let teamsScores = new Map<string, number>();
+        for (const [id, player] of game.players)
+        {
+            const team = player.team;
+    
+            if (!teamsScores.has(team))
+                teamsScores.set(team, 0);
+
+            teamsScores.set(team, <number>teamsScores.get(team) + player.score);
+        }
+
+        for (const [team, score] of teamsScores)
+            if (score >= game.nbRounds)
+                winners.push(team);
+    }
+    else
+    {
+        for (const [id, player] of game.players)
+            if (player.score >= game.nbRounds)
+                winners.push(id);
+    }
 
     if (winners.length == 0)
         setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN*1000);
@@ -1200,7 +1236,10 @@ function gameOver(room: string, winners: Array<string>): void
 
     //  display game over screen
     game.displayStatus = DisplayStatus_S.GAME_OVER;
-    io.to(room).emit('gameOver', winners);
+    if (game.hasTeams)
+        io.to(room).emit('gameOverTeams', winners);
+    else
+        io.to(room).emit('gameOverPlayers', winners);
 
     // go back to setup page
     setTimeout(() => {

@@ -23,6 +23,7 @@ class Player extends LiteRay {
         this.name = "";
         this.score = 0;
         this.nbKillsInRound = 0;
+        this.team = "";
     }
 }
 const canvas = document.getElementById("gameCanvas");
@@ -37,7 +38,7 @@ let winners = new Array();
 joinTestRoom();
 function joinTestRoom() {
     socket.emit('joinRoom', { name: "TEST", room: "TEST", password: "" }, (response) => { });
-    socket.emit('setPlayerParams', { color: "#ffff00", team: "TEST", ready: true }, (response) => { });
+    socket.emit('setPlayerParams', { color: "#ffff00", team: "", ready: true }, (response) => { });
     socket.emit('play', null, (response) => { });
 }
 socket.on('connect', () => {
@@ -68,15 +69,23 @@ socket.on('displayScores', (params) => {
         let player = PLAYERS.get(data.id);
         player.score = data.score;
         player.nbKillsInRound = data.nbKills;
+        player.team = data.team;
     }
     displayStatus = DisplayStatus.SCORES;
 });
-socket.on('gameOver', (params) => {
-    //console.log("gameOver", params);
+socket.on('gameOverPlayers', (params) => {
+    //console.log("gameOverPlayers", params);
     winners = new Array();
     for (const id of params)
         if (PLAYERS.has(id))
             winners.push(PLAYERS.get(id).name);
+    displayStatus = DisplayStatus.GAME_OVER;
+});
+socket.on('gameOverTeams', (params) => {
+    //console.log("gameOverTeams", params);
+    winners = new Array();
+    for (const team of params)
+        winners.push(team);
     displayStatus = DisplayStatus.GAME_OVER;
 });
 //# sourceMappingURL=client.js.map
