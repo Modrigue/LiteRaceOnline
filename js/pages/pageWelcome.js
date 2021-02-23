@@ -68,7 +68,7 @@ socket.on('roomsList', (params) => {
         let option = document.createElement('option');
         option.value = roomData.room;
         option.textContent =
-            `${roomData.room} - ${roomData.nbPlayers}/${roomData.nbPlayersMax} players - ${roomData.status}`;
+            `${roomData.room} - ${roomData.nbPlayers}/${roomData.nbPlayersMax} - ${roomData.status}`;
         roomSelect.appendChild(option);
     }
     roomSelect.selectedIndex = -1;

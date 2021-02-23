@@ -68,12 +68,12 @@ canvas
 
 #userName, #createRoomName, #password
 {
-    width: 300px;
+    width: 400px;
 }
 
 #joinRoomName
 {
-    width: 310px;
+    width: 410px;
 }
 
 .grid2Cols
