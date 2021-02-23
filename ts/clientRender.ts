@@ -54,6 +54,22 @@ function renderLoop(): void
                 ctx.fillText(`Winners: ${winnersStr}`, STADIUM_W_CLIENT/2, 100);
             }
 
+            // look for top score(s)
+            let scoreMax: number = 0;
+            let scoreMaxPlayers = new Array<string>();
+            for (const [id, player] of PLAYERS)
+            {
+                const scoreCur = player.score;
+                if (scoreCur > scoreMax)
+                {
+                    scoreMax = scoreCur;
+                    scoreMaxPlayers = [id];
+                }
+                else if (scoreCur == scoreMax && scoreMax > 0)
+                    scoreMaxPlayers.push(id);
+            }
+
+            // display name, score, kills
             let index = 0;
             ctx.font = "24px Arial";
             for (const [id, player] of PLAYERS)
@@ -63,7 +79,8 @@ function renderLoop(): void
                 // name
                 ctx.fillStyle = player.color;
                 ctx.textAlign = "right";
-                ctx.fillText(`${player.name}`, STADIUM_W_CLIENT/2 - 100, yText);
+                const nameStr = scoreMaxPlayers.includes(id) ? `♛ ${player.name}` : player.name
+                ctx.fillText(nameStr, STADIUM_W_CLIENT/2 - 100, yText);
 
                 // score
                 ctx.textAlign = "center";
