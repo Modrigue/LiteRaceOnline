@@ -9,7 +9,7 @@ const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 // for etsts purposes only
 const FAST_TEST_MODE = false;
 const FAST_TEST_NB_PLAYERS = 2;
-const FAST_TEST_NB_ROUNDS = 3;
+const FAST_TEST_NB_ROUNDS = 10;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
 class Point2_S {
     constructor(x, y) {
@@ -108,6 +108,9 @@ class LiteRay_S {
             return true;
         }
         return false;
+    }
+    reset() {
+        this.points = new Array();
     }
     direction() {
         if (!this._points || this._points.length <= 1)
@@ -569,33 +572,146 @@ function initPlayersPositions(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
-    const yDiff = 80;
+    // TODO: handle teams?
+    const percent = Math.floor(100 * Math.random());
+    const positioning = Math.floor(percent / 25) + 1;
+    switch (positioning) {
+        case 1: // face to face
+            {
+                const dy = 80;
+                const remain = (game.nbPlayersMax % 2);
+                for (const [id, player] of game.players) {
+                    const side = (player.no % 2); // left / right
+                    const nbPlayersInSide = (0 < side && side <= remain) ?
+                        Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
+                    const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
+                    const xStart = (side == 1) ? 50 : STADIUM_W - 50;
+                    let yMin = (nbPlayersInSide % 2 == 0) ?
+                        STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dy :
+                        STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dy;
+                    const yStart = yMin + (noPlayerInSide - 1) * dy;
+                    //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
+                    const dx = (side == 1) ? 1 : -1;
+                    player.reset();
+                    player.addPoint(xStart, yStart);
+                    player.addPoint(xStart + dx, yStart);
+                }
+                break;
+            }
+        case 2: // reverse face to face
+            {
+                const dy = 2;
+                const remain = (game.nbPlayersMax % 2);
+                for (const [id, player] of game.players) {
+                    const side = (player.no % 2); // left / right
+                    const nbPlayersInSide = (0 < side && side <= remain) ?
+                        Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
+                    const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
+                    const xStart = STADIUM_W / 2;
+                    let yMin = (nbPlayersInSide % 2 == 0) ?
+                        STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dy :
+                        STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dy;
+                    const yStart = yMin + (noPlayerInSide - 1) * dy;
+                    //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
+                    const dx = (side == 1) ? -1 : 1;
+                    player.reset();
+                    player.addPoint(xStart, yStart);
+                    player.addPoint(xStart + dx, yStart);
+                }
+                break;
+            }
+        case 3: // around
+            {
+                const dxy = 80;
+                const remain = (game.nbPlayersMax % 4);
+                for (const [id, player] of game.players) {
+                    const side = (player.no % 4); // left / right / top / bottom
+                    const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
+                        Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
+                    const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
+                    if (side == 1 || side == 2) // left / right
+                     {
+                        const xStart = (side == 1) ?
+                            STADIUM_W / 2 - (STADIUM_H / 2 - 20) : STADIUM_W / 2 + (STADIUM_H / 2 - 20);
+                        let yMin = (nbPlayersInSide % 2 == 0) ?
+                            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                        const yStart = yMin + (noPlayerInSide - 1) * dxy;
+                        const dx = (side == 1) ? 1 : -1;
+                        player.reset();
+                        player.addPoint(xStart, yStart);
+                        player.addPoint(xStart + dx, yStart);
+                    }
+                    else // top /right
+                     {
+                        let xMin = (nbPlayersInSide % 2 == 0) ?
+                            STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                            STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                        console.log(player.no, nbPlayersInSide, xMin);
+                        const xStart = xMin + (noPlayerInSide - 1) * dxy;
+                        const yStart = (side == 3) ?
+                            STADIUM_H / 2 - (STADIUM_H / 2 - 20) : STADIUM_H / 2 + (STADIUM_H / 2 - 20);
+                        const dy = (side == 3) ? 1 : -1;
+                        player.reset();
+                        player.addPoint(xStart, yStart);
+                        player.addPoint(xStart, yStart + dy);
+                    }
+                    //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                }
+                break;
+            }
+        case 4: // reverse around
+            {
+                const dxy = Math.ceil(game.nbPlayersMax / 4);
+                const remain = (game.nbPlayersMax % 4);
+                for (const [id, player] of game.players) {
+                    const side = (player.no % 4); // left / right / top / bottom
+                    const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
+                        Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
+                    const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
+                    if (side == 1 || side == 2) // left / right
+                     {
+                        const xStart = (side == 1) ?
+                            STADIUM_W / 2 - dxy / 2 : STADIUM_W / 2 + dxy / 2;
+                        let yMin = (nbPlayersInSide % 2 == 0) ?
+                            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                        const yStart = yMin + (noPlayerInSide - 1) * dxy;
+                        const dx = (side == 1) ? -1 : 1;
+                        player.reset();
+                        player.addPoint(xStart, yStart);
+                        player.addPoint(xStart + dx, yStart);
+                    }
+                    else // top /right
+                     {
+                        let xMin = (nbPlayersInSide % 2 == 0) ?
+                            STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                            STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                        console.log(player.no, nbPlayersInSide, xMin);
+                        const xStart = xMin + (noPlayerInSide - 1) * dxy;
+                        const yStart = (side == 3) ?
+                            STADIUM_H / 2 - dxy / 2 : STADIUM_H / 2 + dxy / 2;
+                        const dy = (side == 3) ? -1 : 1;
+                        player.reset();
+                        player.addPoint(xStart, yStart);
+                        player.addPoint(xStart, yStart + dy);
+                    }
+                    //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                }
+                break;
+            }
+    }
+    // finalization
     for (const [id, player] of game.players) {
-        const side = (player.no % 2 == 0) ? 2 : 1; // TODO: handle teams
-        const nbPlayersInSide = (side == 1) ?
-            Math.ceil(game.nbPlayersMax / 2) :
-            Math.floor(game.nbPlayersMax / 2);
-        const noPlayerInTeam = Math.floor((player.no - 1) / 2) + 1;
-        const xStart = (side == 1) ? 50 : STADIUM_W - 50;
-        let yMin = (nbPlayersInSide % 2 == 0) ?
-            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * yDiff :
-            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * yDiff;
-        const yStart = yMin + (noPlayerInTeam - 1) * yDiff;
-        //console.log('PLAYER ', (player.no, noPlayerInTeam, yMin, xStart, yStart);
-        const dx = (side == 1) ? 1 : -1;
-        player.points = new Array();
-        player.addPoint(xStart, yStart);
-        player.addPoint(xStart + dx, yStart);
         player.alive = true;
         player.killedBy = "";
         player.nbKillsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
         // for fast test only
         if (FAST_TEST_MODE) {
-            const playersColors = ["#ffff00", "#8888ff", "#ff0000", "#00ff00"];
-            const playersNames = ["Player 1", "Player 2 long name", "Player 3", "Player 4"];
-            player.color = playersColors[player.no - 1];
-            player.name = playersNames[player.no - 1];
+            const playersColors = ["#ffff00", "#0000ff", "#ff0000", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
+            player.color = playersColors[(player.no - 1) % playersColors.length];
+            player.name = `Player ${player.no}`;
         }
     }
 }

@@ -74,6 +74,11 @@ class LiteRay
         this._points[nbPoints - 1].y = pointNext.y;
     }
 
+    reset()
+    {
+        this.points = new Array<Point2>();
+    }
+
     direction(): {dirx: number, diry: number}
     {
         if (!this._points || this._points.length <= 1)
