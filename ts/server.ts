@@ -1,4 +1,4 @@
-const STADIUM_W = 640;
+const STADIUM_W = 600;
 const STADIUM_H = 360;
 
 const DURATION_PREPARE_SCREEN = 3;  // in s
@@ -10,7 +10,7 @@ const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 
 // for tests purposes only
 const FAST_TEST_MODE = false;
-const FAST_TEST_NB_PLAYERS = 4;
+const FAST_TEST_NB_PLAYERS = 3;
 const FAST_TEST_NB_ROUNDS = 3;
 const FAST_TEST_HAS_TEAMS = false;
 
