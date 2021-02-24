@@ -29,6 +29,7 @@ function onSubmit() {
                     setVisible("pageGame", false);
                     setEnabled("gameNbPlayers", false);
                     setEnabled("gameNbRounds", false);
+                    setEnabled("gameHasTeams", false);
                     setEnabled("buttonPlay", false);
                     document.getElementById('buttonPlay').innerText
                         = response.enablePlay ? "JOIN GAME" : "START GAME";
@@ -51,6 +52,7 @@ function onSubmit() {
                     setVisible("pageGame", false);
                     setEnabled("gameNbPlayers", true);
                     setEnabled("gameNbRounds", true);
+                    setEnabled("gameHasTeams", true);
                     setEnabled("buttonPlay", false);
                     creator = true;
                 }

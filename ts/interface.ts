@@ -29,9 +29,11 @@ window.onload = function()
     // game setup page
 
     const inputNbPlayers = <HTMLInputElement>document.getElementById('gameNbPlayers');
-    inputNbPlayers.addEventListener('input', onNumberInput);
+    inputNbPlayers.addEventListener('input', onRoomParamChanged);
     const inputNbRounds = <HTMLInputElement>document.getElementById('gameNbRounds');
-    inputNbRounds.addEventListener('input', onNumberInput);
+    inputNbRounds.addEventListener('input', onRoomParamChanged);
+    const inputHasTeams = <HTMLInputElement>document.getElementById('gameHasTeams');
+    inputHasTeams.addEventListener('input', onRoomParamChanged);
 
     // game page
     const buttonPlay = <HTMLButtonElement>document.getElementById('buttonPlay');
@@ -130,6 +132,9 @@ function setVisible(id: string, status: boolean): void
 function setEnabled(id: string, status: boolean): void
 {
     let elem: any = document.getElementById(id);
+    if (!elem || elem === undefined)
+        return;
+
     elem.disabled = !status;
 }
 

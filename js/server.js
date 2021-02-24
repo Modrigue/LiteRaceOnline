@@ -30,7 +30,7 @@ class Segment_S {
 class LiteRay_S {
     constructor() {
         this._points = new Array();
-        this.color = "#8888ff";
+        this.color = "#6666ff";
         this.speed = 1;
         this.up = false;
         this.down = false;
@@ -373,6 +373,7 @@ function connected(socket) {
             if (game.status != GameStatus.PLAYING) {
                 game.nbPlayersMax = params.nbPlayersMax;
                 game.nbRounds = params.nbRounds;
+                game.hasTeams = params.hasTeams;
                 updateRoomParams(room);
             }
         }
@@ -519,7 +520,7 @@ function updateRoomParams(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
-    io.to(room).emit('updateRoomParams', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
+    io.to(room).emit('updateRoomParams', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds, hasTeams: game.hasTeams });
 }
 function updatePlayersParams(room) {
     if (!games.has(room))
@@ -690,7 +691,6 @@ function initPlayersPositions(room) {
                         let xMin = (nbPlayersInSide % 2 == 0) ?
                             STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
                             STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
-                        console.log(player.no, nbPlayersInSide, xMin);
                         const xStart = xMin + (noPlayerInSide - 1) * dxy;
                         const yStart = (side == 3) ?
                             STADIUM_H / 2 - dxy / 2 : STADIUM_H / 2 + dxy / 2;
@@ -747,17 +747,35 @@ function serverLoop() {
     }
 }
 function gameLogic(room) {
-    // check remaining players
+    // display scores if round finished
     if (!games.has(room))
         return;
     const game = games.get(room);
-    let nbPlayersAlive = 0;
-    for (const [id, player] of game.players)
-        if (player.alive)
-            nbPlayersAlive++;
-    const nbPlayersLast = (game.nbPlayersMax > 1) ? 1 : 0; // TODO: handle teams
-    if (nbPlayersAlive <= nbPlayersLast)
+    if (roundFinished(room))
         scoring(room);
+}
+function roundFinished(room) {
+    // check remaining players / team
+    if (!games.has(room))
+        return false;
+    const game = games.get(room);
+    let nbPlayersOrTeamsAlive = 0;
+    if (game.hasTeams) {
+        let teamsAlive = new Array();
+        for (const [id, player] of game.players)
+            if (player.alive) {
+                if (!teamsAlive.includes(player.team))
+                    teamsAlive.push(player.team);
+            }
+        nbPlayersOrTeamsAlive = teamsAlive.length;
+    }
+    else {
+        for (const [id, player] of game.players)
+            if (player.alive)
+                nbPlayersOrTeamsAlive++;
+    }
+    const nbPlayersOrTeamsLast = (game.nbPlayersMax > 1) ? 1 : 0;
+    return (nbPlayersOrTeamsAlive <= nbPlayersOrTeamsLast);
 }
 function physicsLoop(room) {
     if (!games.has(room))

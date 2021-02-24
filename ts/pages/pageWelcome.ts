@@ -40,6 +40,7 @@ function onSubmit()
 
                     setEnabled("gameNbPlayers", false);
                     setEnabled("gameNbRounds", false);
+                    setEnabled("gameHasTeams", false);
                     setEnabled("buttonPlay", false);
                     (<HTMLButtonElement>document.getElementById('buttonPlay')).innerText
                         = response.enablePlay ? "JOIN GAME" : "START GAME";
@@ -70,6 +71,7 @@ function onSubmit()
 
                     setEnabled("gameNbPlayers", true);
                     setEnabled("gameNbRounds", true);
+                    setEnabled("gameHasTeams", true);
                     setEnabled("buttonPlay", false);
 
                     creator = true;

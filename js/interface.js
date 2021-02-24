@@ -22,9 +22,11 @@ window.onload = function () {
     buttonSubmit.addEventListener('click', onSubmit);
     // game setup page
     const inputNbPlayers = document.getElementById('gameNbPlayers');
-    inputNbPlayers.addEventListener('input', onNumberInput);
+    inputNbPlayers.addEventListener('input', onRoomParamChanged);
     const inputNbRounds = document.getElementById('gameNbRounds');
-    inputNbRounds.addEventListener('input', onNumberInput);
+    inputNbRounds.addEventListener('input', onRoomParamChanged);
+    const inputHasTeams = document.getElementById('gameHasTeams');
+    inputHasTeams.addEventListener('input', onRoomParamChanged);
     // game page
     const buttonPlay = document.getElementById('buttonPlay');
     buttonPlay.addEventListener('click', onPlay);
@@ -95,6 +97,8 @@ function setVisible(id, status) {
 }
 function setEnabled(id, status) {
     let elem = document.getElementById(id);
+    if (!elem || elem === undefined)
+        return;
     elem.disabled = !status;
 }
 function removeAllChildren(parent) {
