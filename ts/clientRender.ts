@@ -20,6 +20,9 @@ function renderLoop(): void
             break;
 
         case DisplayStatus.PLAYING:
+
+            drawStadiumBounds();
+
             PLAYERS.forEach((player) => { player.draw(ctx); })
             STADIUM.forEach((wall) => { wall.draw(ctx); })
 
@@ -119,6 +122,14 @@ function displayPlayersScores()
         ctx.fillText(`(${nbKillsStr})`, STADIUM_W_CLIENT/2 + 100, yText);
         index++;
     }
+}
+
+function drawStadiumBounds()
+{
+    ctx.strokeStyle = "#880088";
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(0, 0, STADIUM_W_CLIENT, STADIUM_H_CLIENT);
+    ctx.setLineDash([]);
 }
 
 function displayTeamsScores()
