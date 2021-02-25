@@ -165,6 +165,11 @@ function collideSegment(ray, x1, y1, x2, y2) {
 // returns true if point (x, y) is on segment
 // TODO: use Bresenham's algorithm or SAT?
 function pointOnSegment(x, y, x1, y1, x2, y2) {
+    // check if horizontal / vertical segments
+    if (y1 == y2)
+        return (y == y1 && Math.min(x1, x2) <= x && x <= Math.max(x1, x2));
+    else if (x1 == x2)
+        return (x == x1 && Math.min(y1, y2) <= y && y <= Math.max(y1, y2));
     // check if last point is in bounding box
     const xSegMin = Math.min(x1, x2);
     const xSegMax = Math.max(x1, x2);
