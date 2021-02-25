@@ -8,7 +8,7 @@ const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 // for tests purposes only
 const FAST_TEST_MODE = false;
-const FAST_TEST_NB_PLAYERS = 3;
+const FAST_TEST_NB_PLAYERS = 2;
 const FAST_TEST_NB_ROUNDS = 3;
 const FAST_TEST_HAS_TEAMS = false;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
@@ -20,9 +20,11 @@ class Point2_S {
 }
 class Segment_S {
     constructor(x1, y1, x2, y2, color) {
+        this.color = "";
         this._points = new Array(2);
         this._points[0] = new Point2_S(x1, y1);
         this._points[1] = new Point2_S(x2, y2);
+        this.color = color;
     }
     get points() { return this._points; }
     set points(value) { this._points = value; }
@@ -300,7 +302,7 @@ function connected(socket) {
         creator.room = room;
         let newGame = new Game_S();
         newGame.players.set(socket.id, creator);
-        newGame.password = params.password;
+        newGame.password = params.password; // TODO: hash password
         newGame.status = GameStatus.SETUP;
         games.set(room, newGame);
         creator.no = 1;
@@ -905,16 +907,24 @@ function newStadium(room) {
     const wallsH = (percentWallH >= 50);
     ;
     if (wallsV) {
-        let wallLeft = new Segment_S(0, 0, 0, STADIUM_H, "darkgrey");
-        let wallRight = new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey");
-        game.stadium.push(wallLeft);
-        game.stadium.push(wallRight);
+        let wallLeft1 = new Segment_S(0, 0, 0, STADIUM_H, "darkgrey");
+        let wallRight1 = new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey");
+        let wallLeft2 = new Segment_S(1, 0, 1, STADIUM_H, "grey");
+        let wallRight2 = new Segment_S(STADIUM_W - 1, 0, STADIUM_W - 1, 480, "grey");
+        game.stadium.push(wallLeft1);
+        game.stadium.push(wallRight1);
+        game.stadium.push(wallLeft2);
+        game.stadium.push(wallRight2);
     }
     if (wallsH) {
-        let wallTop = new Segment_S(0, 0, STADIUM_W, 0, "darkgrey");
-        let wallBottom = new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey");
-        game.stadium.push(wallTop);
-        game.stadium.push(wallBottom);
+        let wallTop1 = new Segment_S(0, 0, STADIUM_W, 0, "darkgrey");
+        let wallBottom1 = new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey");
+        let wallTop2 = new Segment_S(0, 1, STADIUM_W, 1, "grey");
+        let wallBottom2 = new Segment_S(0, STADIUM_H - 1, STADIUM_W, STADIUM_H - 1, "grey");
+        game.stadium.push(wallTop1);
+        game.stadium.push(wallBottom1);
+        game.stadium.push(wallTop2);
+        game.stadium.push(wallBottom2);
     }
     sendStadium(room);
 }
@@ -924,7 +934,7 @@ function sendStadium(room) {
     const game = games.get(room);
     let stadiumParams = new Array();
     for (const wall of game.stadium)
-        stadiumParams.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y });
+        stadiumParams.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y, color: wall.color });
     io.to(room).emit('stadium', stadiumParams);
 }
 function gameOver(room, winners) {

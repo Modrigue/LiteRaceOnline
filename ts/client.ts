@@ -65,11 +65,11 @@ socket.on('gamesParams', (params: {stadiumW: number, stadiumH: number, fastTestM
 });
 
 
-socket.on('stadium', (params: Array<{x1: number, y1: number, x2: number, y2: number}>) => {
+socket.on('stadium', (params: Array<{x1: number, y1: number, x2: number, y2: number, color: string}>) => {
     STADIUM = new Array<Segment>();
-    for (const coords of params)
+    for (const data of params)
     {
-        const newWall: Segment = new Segment(coords.x1, coords.y1, coords.x2, coords.y2, "darkgrey");
+        const newWall: Segment = new Segment(data.x1, data.y1, data.x2, data.y2, data.color);
         STADIUM.push(newWall);
     }
 

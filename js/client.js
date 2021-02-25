@@ -55,8 +55,8 @@ socket.on('gamesParams', (params) => {
 });
 socket.on('stadium', (params) => {
     STADIUM = new Array();
-    for (const coords of params) {
-        const newWall = new Segment(coords.x1, coords.y1, coords.x2, coords.y2, "darkgrey");
+    for (const data of params) {
+        const newWall = new Segment(data.x1, data.y1, data.x2, data.y2, data.color);
         STADIUM.push(newWall);
     }
     displayStatus = DisplayStatus.PLAYING;
