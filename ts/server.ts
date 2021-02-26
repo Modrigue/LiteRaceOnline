@@ -8,9 +8,12 @@ const DURATION_GAME_OVER_SCREEN = 10;
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 
+enum GameMode { BODYCOUNT, SURVIVOR }
+
 // for tests purposes only
-const FAST_TEST_MODE = false;
-const FAST_TEST_NB_PLAYERS = 2;
+const FAST_TEST_ON = false;
+const FAST_TEST_MODE = GameMode.SURVIVOR;
+const FAST_TEST_NB_PLAYERS = 4;
 const FAST_TEST_NB_ROUNDS = 3;
 const FAST_TEST_HAS_TEAMS = false;
 
@@ -53,6 +56,10 @@ class LiteRay_S
     private _points : Array<Point2_S> = new Array<Point2_S>();
     public get points() : Array<Point2_S> { return this._points; }
     public set points(value : Array<Point2_S>) { this._points = value; }
+   
+    private _pointLastCollision : Point2_S = new Point2_S(-Infinity, -Infinity);
+    public get pointLastCollision() : Point2_S { return this._pointLastCollision; }
+    public set pointLastCollision(value : Point2_S) { this._pointLastCollision = value; }
     
     public color: string;
     public speed: number;
@@ -167,9 +174,22 @@ class LiteRay_S
         return false;
     }
 
+    applyCollision()
+    {
+        if (this._pointLastCollision.x == -Infinity || this._pointLastCollision.y == -Infinity)
+            return;
+
+        const pointLast: Point2_S = this.getLastPoint();
+        pointLast.x = this._pointLastCollision.x;
+        pointLast.y = this._pointLastCollision.y;
+    }
+
     reset()
     {
         this.points = new Array<Point2>();
+
+        this._pointLastCollision.x = -Infinity;
+        this._pointLastCollision.y = -Infinity;
     }
 
     direction(): {dirx: number, diry: number}
@@ -227,8 +247,9 @@ function collideSegment(ray: LiteRay_S, x1: number, y1: number, x2: number, y2: 
         const collisionCur = pointOnSegment(xrCur, yrCur, x1, y1, x2, y2);
         if (collisionCur)
         {
-            pointLast.x = xrCur - ray.direction().dirx;
-            pointLast.y = yrCur - ray.direction().diry;
+            // store last collision point
+            ray.pointLastCollision.x = xrCur - ray.direction().dirx;
+            ray.pointLastCollision.y = yrCur - ray.direction().diry;
             return true;
         }
     }
@@ -342,8 +363,9 @@ class Player_S extends LiteRay_S
     creator:  boolean = false;
 
     score: number = 0;
+    markForDead: boolean = false;
     killedBy: string = "";
-    nbKillsInRound: number = 0;
+    nbPointsInRound: number = 0;
 }
 
 enum GameStatus
@@ -363,12 +385,13 @@ enum DisplayStatus_S
     GAME_OVER
 }
 
-class Game_S
+class Game
 {
     nbPlayersMax: number = 2;
     players: Map<string, Player_S> = new Map<string, Player_S>();
     hasTeams: boolean = false;
 
+    mode: GameMode = GameMode.BODYCOUNT;
     stadium: Array<Segment_S> = new Array<Segment_S>();
 
     nbRounds: number = 10;
@@ -380,13 +403,18 @@ class Game_S
     displayStatus: DisplayStatus_S = DisplayStatus_S.NONE;
 }
 
-let games = new Map<string, Game_S>();
+let games = new Map<string, Game>();
 let clientNo: number = 0;
 
 // for fast test only
-let gameTest = new Game_S();
-if (FAST_TEST_MODE)
+let gameTest = new Game();
+setFastTestMode(FAST_TEST_ON);
+function setFastTestMode(state: boolean): void
 {
+    if (!state)
+        return;
+
+    gameTest.mode = FAST_TEST_MODE;
     gameTest.nbPlayersMax = FAST_TEST_NB_PLAYERS;
     gameTest.nbRounds = FAST_TEST_NB_ROUNDS;
     gameTest.hasTeams = FAST_TEST_HAS_TEAMS;
@@ -405,7 +433,7 @@ function connected(socket: any)
     console.log(`Client '${socket.id}' connected`);
     updateRoomsList();
 
-    io.emit('gamesParams', {stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_MODE});
+    io.emit('gamesParams', {stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_ON});
     
     // create new room
     socket.on('createNewRoom', (params: {name: string, room: string, password: string}, response: any) =>
@@ -429,7 +457,7 @@ function connected(socket: any)
         creator.name = params.name;
         creator.room = room;
 
-        let newGame = new Game_S();
+        let newGame = new Game();
         newGame.players.set(socket.id, creator);
         newGame.password = params.password; // TODO: hash password
         newGame.status = GameStatus.SETUP;
@@ -461,7 +489,7 @@ function connected(socket: any)
         }
 
         // check password if existing
-        let game = <Game_S>games.get(room);
+        let game = <Game>games.get(room);
         if (game.password && game.password.length > 0)
         {
             if (params.password.length == 0)
@@ -521,7 +549,7 @@ function connected(socket: any)
         // update on all room clients game setup page
         if (games.has(room))
         {
-            const game = <Game_S>games.get(room);
+            const game = <Game>games.get(room);
             if (game.status != GameStatus.PLAYING)
             {
                 game.nbPlayersMax = params.nbPlayersMax;
@@ -542,7 +570,7 @@ function connected(socket: any)
         if (!games.has(room))
             return;
 
-        const game = <Game_S>games.get(room);
+        const game = <Game>games.get(room);
         if (game.players && game.players.has(socket.id))
         {
             let player = getPlayerFromId(socket.id);
@@ -566,7 +594,7 @@ function connected(socket: any)
         
         if (games.has(room))
         {
-            const game = <Game_S>games.get(room);
+            const game = <Game>games.get(room);
             if (game.players.size < game.nbPlayersMax)
                 return;
 
@@ -585,7 +613,7 @@ function connected(socket: any)
 
                 default:
                     // for tests only
-                    if (FAST_TEST_MODE)
+                    if (FAST_TEST_ON)
                     {
                         game.status = GameStatus.PLAYING;
                         playNewGame(room);
@@ -626,7 +654,7 @@ function connected(socket: any)
         }
 
         // delete player in room
-        const game = <Game_S>games.get(room);
+        const game = <Game>games.get(room);
         if (game.players !== null && game.players.has(socket.id))
             game.players.delete(socket.id);
 
@@ -644,7 +672,7 @@ function connected(socket: any)
             return;
 
         // delete player in room
-        const game = <Game_S>games.get(room);
+        const game = <Game>games.get(room);
         if (game.players !== null && game.players.has(params.id))
         {
             game.players.delete(params.id);
@@ -708,7 +736,7 @@ function updatePlayersList(room: string)
     if (!games.has(room))
         return;
     
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
     if (game.players === null)
         return;
 
@@ -723,7 +751,7 @@ function updateRoomParams(room: string)
 {
     if (!games.has(room))
         return
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
  
     io.to(room).emit('updateRoomParams',
         {room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds, hasTeams: game.hasTeams});
@@ -734,7 +762,7 @@ function updatePlayersParams(room: string)
     if (!games.has(room))
         return
 
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
     let playersParams = new Array<{id: string, name: string, color: string, team: string, ready: boolean}>();
     for (const [id, player] of game.players)
         playersParams.push({id: id, name: player.name, color: player.color, team: player.team, ready: player.ready}); 
@@ -761,7 +789,7 @@ function playNewGame(room: string)
     if (!games.has(room))
         return;
     
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
     game.round = 0;
     newRound(room);
     game.displayStatus = DisplayStatus_S.PREPARE;
@@ -774,7 +802,7 @@ function playNewGame(room: string)
         let playerParams = Array<{id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
         for (const [id, player] of game.players)
         {
-            player.score = player.nbKillsInRound = 0;
+            player.score = player.nbPointsInRound = 0;
             player.killedBy = "";
 
             playerParams.push({id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
@@ -791,7 +819,7 @@ function getNextPlayerNoInRoom(room: string): number
 {
     if (!games.has(room))
         return -1;
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
 
     let playerNo = 1;
     for (const [id, player] of game.players)
@@ -809,7 +837,7 @@ function initPlayersPositions(room: string): void
 {
     if (!games.has(room))
         return;
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
 
     // TODO: handle teams?
 
@@ -967,12 +995,13 @@ function initPlayersPositions(room: string): void
     for (const [id, player] of game.players)
     {
         player.alive = true;
+        player.markForDead = false;
         player.killedBy = "";
-        player.nbKillsInRound = 0;
+        player.nbPointsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
         
         // for fast test only
-        if (FAST_TEST_MODE)
+        if (FAST_TEST_ON)
         {
             const playersColors = ["#ffff00", "#0000ff", "#ff0000", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
             player.color = playersColors[(player.no - 1) % playersColors.length];
@@ -988,7 +1017,7 @@ function initPlayersSpeeds(room: string): void
 {
     if (!games.has(room))
         return;
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
 
     const percent = Math.floor(100*Math.random());
     let speed = 1;
@@ -1015,6 +1044,7 @@ function serverLoop()
         physicsLoop(room);
         gameLogic(room);
 
+        // client render
         for (let [id, player] of game.players)
             io.to(room).emit('updatePlayersPositions', { id: id, points: player.points });
     }
@@ -1025,7 +1055,7 @@ function gameLogic(room: string): void
     // display scores if round finished
     if (!games.has(room))
         return;
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
 
     if (roundFinished(room))
         scoring(room);
@@ -1036,7 +1066,7 @@ function roundFinished(room: string): boolean
     // check remaining players / team
     if (!games.has(room))
         return false;
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
 
     let nbPlayersOrTeamsAlive = 0;
     if (game.hasTeams)
@@ -1066,14 +1096,13 @@ function physicsLoop(room: string): void
 {
     if (!games.has(room))
         return;
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
     //console.log(room, game.players);
 
     // extend to next point
     game.players.forEach((player) => {
         if (player.alive)
             player.extendsToNextPoint();
-            
     });
 
     // check for collisions
@@ -1081,27 +1110,37 @@ function physicsLoop(room: string): void
 
         if (player.alive)
         {
-            // TODO: handle drawing at collisions
             for (const [id, otherPlayer] of game.players)
             {
                 if (collideRay(player, <LiteRay_S>otherPlayer))
                 {
-                    player.alive = false;
+                    player.markForDead = true;
                     player.killedBy = id;
-                    //console.log("COLLISION RAY");
+                    //console.log(`PLAYER ${player.no} COLLISION RAY`);
                 }   
             }
 
             for (const wall of game.stadium)
             {
-                if (player.alive)
+                if (!player.markForDead)
                 if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
                 {
-                    player.alive = false;
+                    player.markForDead = true;
                     player.killedBy = "WALL";
-                    //console.log("COLLISION WALL");
+                    //console.log(`PLAYER ${player.no} COLLISION WALL`);
                 }   
             }
+        }
+    });
+
+    // TODO: handle drawing at linear double collisions
+
+    game.players.forEach((player) => {
+        if (player.markForDead)
+        {
+            player.alive = false;
+            player.markForDead = false;
+            player.applyCollision();
         }
     });
 
@@ -1116,7 +1155,7 @@ function userInteraction(room: string): void
 {
     if (!games.has(room))
         return;      
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
     game.players.forEach((player) => { player.keyControl(); })
 }
 
@@ -1124,47 +1163,63 @@ function scoring(room: string)
 {
     if (!games.has(room))
         return;      
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
 
     // update players scores
-    for (const [id, player] of game.players)
+    switch(game.mode)
     {
-        const idKiller : string = player.killedBy;
+        case GameMode.BODYCOUNT:
+            for (const [id, player] of game.players)
+            {
+                const idKiller : string = player.killedBy;
 
-        const hasKillerPlayer = (idKiller.length > 0 && idKiller != "WALL")
-        let killer = null;
-        if (hasKillerPlayer && game.players.has(idKiller))
-            killer = <Player_S>game.players.get(idKiller);
-        //console.log(`Player ${id}: killed by ${idKiller}`);
+                const hasKillerPlayer = (idKiller.length > 0 && idKiller != "WALL")
+                let killer = null;
+                if (hasKillerPlayer && game.players.has(idKiller))
+                    killer = <Player_S>game.players.get(idKiller);
+                //console.log(`Player ${id}: killed by ${idKiller}`);
 
-        if (idKiller == id) // suicide
-        {
-            player.score = Math.max(player.score - 1, 0);
-            player.nbKillsInRound--;
-        }
-        else if (game.hasTeams && killer !== null && player.team == killer.team)
-        {
-            killer.score = Math.max(player.score - 1, 0);
-            killer.nbKillsInRound--;
-        }
-        else if (idKiller == "WALL")
-        {
-            // nop
-        }
-        else if (killer != null && idKiller.length > 0)
-        {
-            killer.score++;
-            killer.nbKillsInRound++;
-        }
+                if (idKiller == id) // suicide
+                {
+                    player.score = Math.max(player.score - 1, 0);
+                    player.nbPointsInRound--;
+                }
+                else if (game.hasTeams && killer !== null && player.team == killer.team)
+                {
+                    killer.score = Math.max(player.score - 1, 0);
+                    killer.nbPointsInRound--;
+                }
+                else if (idKiller == "WALL")
+                {
+                    // nop
+                }
+                else if (killer != null && idKiller.length > 0)
+                {
+                    killer.score++;
+                    killer.nbPointsInRound++;
+                }
+                
+                //console.log(`${player.name}: ${player.score} point(s)`);
+            }
+            break;
         
-        //console.log(`${player.name}: ${player.score} point(s)`);
+        case GameMode.SURVIVOR:
+            for (const [id, player] of game.players)
+            {
+                if (player.alive)
+                {
+                    player.score++;
+                    player.nbPointsInRound++;
+                }
+            }
+            break;
     }
     
     // display scores
     game.displayStatus = DisplayStatus_S.SCORES;
     let scoreParams = new Array<{id: string, team: string, score: number, nbKills: number}>();
     for (const [id, player] of game.players)
-        scoreParams.push({id: id, team: player.team, score: player.score, nbKills: player.nbKillsInRound});
+        scoreParams.push({id: id, team: player.team, score: player.score, nbKills: player.nbPointsInRound});
     io.to(room).emit('displayScores', scoreParams);
 
     // check if player / teams have reached max. score
@@ -1207,7 +1262,7 @@ function newRound(room: string): void
     if (!games.has(room))
         return;
         
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
     game.round++;
     console.log(`ROOM ${room} - ROUND ${game.round}`);
 
@@ -1223,7 +1278,7 @@ function newStadium(room: string): void
     if (!games.has(room))
         return;
 
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
     game.stadium = new Array<Segment_S>();
 
     const percentWallV = Math.floor(100*Math.random());
@@ -1263,7 +1318,7 @@ function sendStadium(room: string): void
     if (!games.has(room))
         return;
 
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
     let stadiumParams = new Array<{x1: number, y1: number, x2: number, y2: number, color: string}>();
     for (const wall of game.stadium)
         stadiumParams.push({x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y, color: wall.color});
@@ -1275,7 +1330,7 @@ function gameOver(room: string, winners: Array<string>): void
 {
     if (!games.has(room))
         return;
-    const game = <Game_S>games.get(room);
+    const game = <Game>games.get(room);
 
     //  display game over screen
     game.displayStatus = DisplayStatus_S.GAME_OVER;

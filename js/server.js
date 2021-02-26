@@ -6,9 +6,15 @@ const DURATION_SCORES_SCREEN = 3;
 const DURATION_GAME_OVER_SCREEN = 10;
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
+var GameMode;
+(function (GameMode) {
+    GameMode[GameMode["BODYCOUNT"] = 0] = "BODYCOUNT";
+    GameMode[GameMode["SURVIVOR"] = 1] = "SURVIVOR";
+})(GameMode || (GameMode = {}));
 // for tests purposes only
-const FAST_TEST_MODE = false;
-const FAST_TEST_NB_PLAYERS = 2;
+const FAST_TEST_ON = false;
+const FAST_TEST_MODE = GameMode.SURVIVOR;
+const FAST_TEST_NB_PLAYERS = 4;
 const FAST_TEST_NB_ROUNDS = 3;
 const FAST_TEST_HAS_TEAMS = false;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
@@ -32,6 +38,7 @@ class Segment_S {
 class LiteRay_S {
     constructor() {
         this._points = new Array();
+        this._pointLastCollision = new Point2_S(-Infinity, -Infinity);
         this.color = "#6666ff";
         this.speed = 1;
         this.up = false;
@@ -43,6 +50,8 @@ class LiteRay_S {
     }
     get points() { return this._points; }
     set points(value) { this._points = value; }
+    get pointLastCollision() { return this._pointLastCollision; }
+    set pointLastCollision(value) { this._pointLastCollision = value; }
     getLastPoint() {
         if (!this._points || this._points.length == 0)
             return new Point2_S(-Infinity, -Infinity);
@@ -112,8 +121,17 @@ class LiteRay_S {
         }
         return false;
     }
+    applyCollision() {
+        if (this._pointLastCollision.x == -Infinity || this._pointLastCollision.y == -Infinity)
+            return;
+        const pointLast = this.getLastPoint();
+        pointLast.x = this._pointLastCollision.x;
+        pointLast.y = this._pointLastCollision.y;
+    }
     reset() {
         this.points = new Array();
+        this._pointLastCollision.x = -Infinity;
+        this._pointLastCollision.y = -Infinity;
     }
     direction() {
         if (!this._points || this._points.length <= 1)
@@ -155,8 +173,9 @@ function collideSegment(ray, x1, y1, x2, y2) {
         const yrCur = yr - i * ray.direction().diry;
         const collisionCur = pointOnSegment(xrCur, yrCur, x1, y1, x2, y2);
         if (collisionCur) {
-            pointLast.x = xrCur - ray.direction().dirx;
-            pointLast.y = yrCur - ray.direction().diry;
+            // store last collision point
+            ray.pointLastCollision.x = xrCur - ray.direction().dirx;
+            ray.pointLastCollision.y = yrCur - ray.direction().diry;
             return true;
         }
     }
@@ -239,8 +258,9 @@ class Player_S extends LiteRay_S {
         this.ready = false;
         this.creator = false;
         this.score = 0;
+        this.markForDead = false;
         this.killedBy = "";
-        this.nbKillsInRound = 0;
+        this.nbPointsInRound = 0;
     }
 }
 var GameStatus;
@@ -258,11 +278,12 @@ var DisplayStatus_S;
     DisplayStatus_S[DisplayStatus_S["SCORES"] = 4] = "SCORES";
     DisplayStatus_S[DisplayStatus_S["GAME_OVER"] = 5] = "GAME_OVER";
 })(DisplayStatus_S || (DisplayStatus_S = {}));
-class Game_S {
+class Game {
     constructor() {
         this.nbPlayersMax = 2;
         this.players = new Map();
         this.hasTeams = false;
+        this.mode = GameMode.BODYCOUNT;
         this.stadium = new Array();
         this.nbRounds = 10;
         this.round = 0;
@@ -275,8 +296,12 @@ class Game_S {
 let games = new Map();
 let clientNo = 0;
 // for fast test only
-let gameTest = new Game_S();
-if (FAST_TEST_MODE) {
+let gameTest = new Game();
+setFastTestMode(FAST_TEST_ON);
+function setFastTestMode(state) {
+    if (!state)
+        return;
+    gameTest.mode = FAST_TEST_MODE;
     gameTest.nbPlayersMax = FAST_TEST_NB_PLAYERS;
     gameTest.nbRounds = FAST_TEST_NB_ROUNDS;
     gameTest.hasTeams = FAST_TEST_HAS_TEAMS;
@@ -288,7 +313,7 @@ setInterval(serverLoop, 1000 / 60);
 function connected(socket) {
     console.log(`Client '${socket.id}' connected`);
     updateRoomsList();
-    io.emit('gamesParams', { stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_MODE });
+    io.emit('gamesParams', { stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_ON });
     // create new room
     socket.on('createNewRoom', (params, response) => {
         const room = params.room;
@@ -305,7 +330,7 @@ function connected(socket) {
         creator.creator = true;
         creator.name = params.name;
         creator.room = room;
-        let newGame = new Game_S();
+        let newGame = new Game();
         newGame.players.set(socket.id, creator);
         newGame.password = params.password; // TODO: hash password
         newGame.status = GameStatus.SETUP;
@@ -425,7 +450,7 @@ function connected(socket) {
                     playNewGame(room);
                 default:
                     // for tests only
-                    if (FAST_TEST_MODE) {
+                    if (FAST_TEST_ON) {
                         game.status = GameStatus.PLAYING;
                         playNewGame(room);
                     }
@@ -559,7 +584,7 @@ function playNewGame(room) {
     setTimeout(() => {
         let playerParams = Array();
         for (const [id, player] of game.players) {
-            player.score = player.nbKillsInRound = 0;
+            player.score = player.nbPointsInRound = 0;
             player.killedBy = "";
             playerParams.push({ id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
                 x2: player.points[1].x, y2: player.points[1].y, color: player.color });
@@ -714,11 +739,12 @@ function initPlayersPositions(room) {
     // finalization
     for (const [id, player] of game.players) {
         player.alive = true;
+        player.markForDead = false;
         player.killedBy = "";
-        player.nbKillsInRound = 0;
+        player.nbPointsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
         // for fast test only
-        if (FAST_TEST_MODE) {
+        if (FAST_TEST_ON) {
             const playersColors = ["#ffff00", "#0000ff", "#ff0000", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
             player.color = playersColors[(player.no - 1) % playersColors.length];
             player.name = `Player ${player.no}`;
@@ -749,6 +775,7 @@ function serverLoop() {
         userInteraction(room);
         physicsLoop(room);
         gameLogic(room);
+        // client render
         for (let [id, player] of game.players)
             io.to(room).emit('updatePlayersPositions', { id: id, points: player.points });
     }
@@ -797,22 +824,29 @@ function physicsLoop(room) {
     // check for collisions
     game.players.forEach((player) => {
         if (player.alive) {
-            // TODO: handle drawing at collisions
             for (const [id, otherPlayer] of game.players) {
                 if (collideRay(player, otherPlayer)) {
-                    player.alive = false;
+                    player.markForDead = true;
                     player.killedBy = id;
-                    //console.log("COLLISION RAY");
+                    //console.log(`PLAYER ${player.no} COLLISION RAY`);
                 }
             }
             for (const wall of game.stadium) {
-                if (player.alive)
+                if (!player.markForDead)
                     if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
-                        player.alive = false;
+                        player.markForDead = true;
                         player.killedBy = "WALL";
-                        //console.log("COLLISION WALL");
+                        //console.log(`PLAYER ${player.no} COLLISION WALL`);
                     }
             }
+        }
+    });
+    // TODO: handle drawing at linear double collisions
+    game.players.forEach((player) => {
+        if (player.markForDead) {
+            player.alive = false;
+            player.markForDead = false;
+            player.applyCollision();
         }
     });
     if (game.resetOnKilled)
@@ -832,36 +866,48 @@ function scoring(room) {
         return;
     const game = games.get(room);
     // update players scores
-    for (const [id, player] of game.players) {
-        const idKiller = player.killedBy;
-        const hasKillerPlayer = (idKiller.length > 0 && idKiller != "WALL");
-        let killer = null;
-        if (hasKillerPlayer && game.players.has(idKiller))
-            killer = game.players.get(idKiller);
-        //console.log(`Player ${id}: killed by ${idKiller}`);
-        if (idKiller == id) // suicide
-         {
-            player.score = Math.max(player.score - 1, 0);
-            player.nbKillsInRound--;
-        }
-        else if (game.hasTeams && killer !== null && player.team == killer.team) {
-            killer.score = Math.max(player.score - 1, 0);
-            killer.nbKillsInRound--;
-        }
-        else if (idKiller == "WALL") {
-            // nop
-        }
-        else if (killer != null && idKiller.length > 0) {
-            killer.score++;
-            killer.nbKillsInRound++;
-        }
-        //console.log(`${player.name}: ${player.score} point(s)`);
+    switch (game.mode) {
+        case GameMode.BODYCOUNT:
+            for (const [id, player] of game.players) {
+                const idKiller = player.killedBy;
+                const hasKillerPlayer = (idKiller.length > 0 && idKiller != "WALL");
+                let killer = null;
+                if (hasKillerPlayer && game.players.has(idKiller))
+                    killer = game.players.get(idKiller);
+                //console.log(`Player ${id}: killed by ${idKiller}`);
+                if (idKiller == id) // suicide
+                 {
+                    player.score = Math.max(player.score - 1, 0);
+                    player.nbPointsInRound--;
+                }
+                else if (game.hasTeams && killer !== null && player.team == killer.team) {
+                    killer.score = Math.max(player.score - 1, 0);
+                    killer.nbPointsInRound--;
+                }
+                else if (idKiller == "WALL") {
+                    // nop
+                }
+                else if (killer != null && idKiller.length > 0) {
+                    killer.score++;
+                    killer.nbPointsInRound++;
+                }
+                //console.log(`${player.name}: ${player.score} point(s)`);
+            }
+            break;
+        case GameMode.SURVIVOR:
+            for (const [id, player] of game.players) {
+                if (player.alive) {
+                    player.score++;
+                    player.nbPointsInRound++;
+                }
+            }
+            break;
     }
     // display scores
     game.displayStatus = DisplayStatus_S.SCORES;
     let scoreParams = new Array();
     for (const [id, player] of game.players)
-        scoreParams.push({ id: id, team: player.team, score: player.score, nbKills: player.nbKillsInRound });
+        scoreParams.push({ id: id, team: player.team, score: player.score, nbKills: player.nbPointsInRound });
     io.to(room).emit('displayScores', scoreParams);
     // check if player / teams have reached max. score
     // TODO: handle ex-aequo
