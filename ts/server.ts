@@ -28,19 +28,19 @@ class Point2_S
 
     constructor(x: number, y: number)
     {
-       this.x = x;
-       this.y = y;
+        this.x = x;
+        this.y = y;
     }
 }
 
 class Segment_S
 {
-    private _points : Array<Point2_S>;
-    public get points() : Array<Point2_S> { return this._points; }
-    public set points(value : Array<Point2_S>) { this._points = value; }
+    private _points: Array<Point2_S>;
+    public get points(): Array<Point2_S> { return this._points; }
+    public set points(value: Array<Point2_S>) { this._points = value; }
 
     color: string = "";
-    
+
     constructor(x1: number, y1: number, x2: number, y2: number, color: string)
     {
         this._points = new Array<Point2_S>(2);
@@ -53,14 +53,14 @@ class Segment_S
 
 class LiteRay_S
 {
-    private _points : Array<Point2_S> = new Array<Point2_S>();
-    public get points() : Array<Point2_S> { return this._points; }
-    public set points(value : Array<Point2_S>) { this._points = value; }
-   
-    private _pointLastCollision : Point2_S = new Point2_S(-Infinity, -Infinity);
-    public get pointLastCollision() : Point2_S { return this._pointLastCollision; }
-    public set pointLastCollision(value : Point2_S) { this._pointLastCollision = value; }
-    
+    private _points: Array<Point2_S> = new Array<Point2_S>();
+    public get points(): Array<Point2_S> { return this._points; }
+    public set points(value: Array<Point2_S>) { this._points = value; }
+
+    private _pointLastCollision: Point2_S = new Point2_S(-Infinity, -Infinity);
+    public get pointLastCollision(): Point2_S { return this._pointLastCollision; }
+    public set pointLastCollision(value: Point2_S) { this._pointLastCollision = value; }
+
     public color: string;
     public speed: number;
     public alive: boolean;
@@ -86,7 +86,7 @@ class LiteRay_S
     getLastPoint(): Point2_S
     {
         if (!this._points || this._points.length == 0)
-        return new Point2_S(-Infinity, -Infinity);
+            return new Point2_S(-Infinity, -Infinity);
 
         // get last point
         const nbPoints = this._points.length;
@@ -104,15 +104,15 @@ class LiteRay_S
         if (!this._points || this._points.length <= 1)
             return new Point2_S(-Infinity, -Infinity);
 
-        const {dirx, diry}: {dirx: number, diry: number} = this.direction();
+        const { dirx, diry }: { dirx: number, diry: number } = this.direction();
         if (dirx == -Infinity || diry == -Infinity)
             return new Point2_S(-Infinity, -Infinity);
 
         // get last point
         const pointLast = this.getLastPoint();
 
-        const x: number = pointLast.x + this.speed*dirx;
-        const y: number = pointLast.y + this.speed*diry;
+        const x: number = pointLast.x + this.speed * dirx;
+        const y: number = pointLast.y + this.speed * diry;
         return new Point2_S(x, y);
     }
 
@@ -192,10 +192,10 @@ class LiteRay_S
         this._pointLastCollision.y = -Infinity;
     }
 
-    direction(): {dirx: number, diry: number}
+    direction(): { dirx: number, diry: number }
     {
         if (!this._points || this._points.length <= 1)
-            return {dirx: -Infinity, diry: -Infinity};
+            return { dirx: -Infinity, diry: -Infinity };
 
         // get last segment
         const nbPoints = this._points.length;
@@ -208,24 +208,24 @@ class LiteRay_S
 
         const dirx: number = Math.sign(dx);
         const diry: number = Math.sign(dy);
-        return {dirx: dirx, diry: diry};
+        return { dirx: dirx, diry: diry };
     }
 
     keyControl()
     {
-        const {dirx, diry}: {dirx: number, diry: number} = this.direction();
+        const { dirx, diry }: { dirx: number, diry: number } = this.direction();
 
         // get last segment
         const nbPoints = this._points.length;
         const pointLast = this._points[nbPoints - 1];
 
-        if(this.up && diry == 0)
+        if (this.up && diry == 0)
             this.addPoint(pointLast.x, pointLast.y - this.speed);
-        else if(this.down && diry == 0)
+        else if (this.down && diry == 0)
             this.addPoint(pointLast.x, pointLast.y + this.speed);
-        else if(this.left && dirx == 0)
+        else if (this.left && dirx == 0)
             this.addPoint(pointLast.x - this.speed, pointLast.y);
-        else if(this.right && dirx == 0)
+        else if (this.right && dirx == 0)
             this.addPoint(pointLast.x + this.speed, pointLast.y);
     }
 }
@@ -241,9 +241,9 @@ function collideSegment(ray: LiteRay_S, x1: number, y1: number, x2: number, y2: 
 
     for (let i = ray.speed - 1; i >= 0; i--)
     {
-        const xrCur = xr - i*ray.direction().dirx;
-        const yrCur = yr - i*ray.direction().diry;
-        
+        const xrCur = xr - i * ray.direction().dirx;
+        const yrCur = yr - i * ray.direction().diry;
+
         const collisionCur = pointOnSegment(xrCur, yrCur, x1, y1, x2, y2);
         if (collisionCur)
         {
@@ -280,8 +280,8 @@ function pointOnSegment(x: number, y: number, x1: number, y1: number, x2: number
     // point on segment iff. (yr - y1)/(y2 - y1) = (xr - x1)/(x2 - x1)
     // <=> (yr - y1)*(x2 - x1) = (xr - x1)*(y2 - y1) to avoid divisions by 0
     // <=> | (yr - y1)*(x2 - x1) - (xr - x1)*(y2 - y1) | < threshold to handle pixels
-    const dist = Math.abs((y - y1)*(x2 - x1) - (x - x1)*(y2 - y1));
-    
+    const dist = Math.abs((y - y1) * (x2 - x1) - (x - x1) * (y2 - y1));
+
     return (dist <= STADIUM_H);
 }
 
@@ -302,7 +302,7 @@ function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
     for (const pointCur of ray2.points)
     {
         if (pointCur.x != Infinity && pointCur.y != Infinity
-         && pointPrev.x != Infinity && pointPrev.y != Infinity)
+            && pointPrev.x != Infinity && pointPrev.y != Infinity)
         {
             // skip own ray current segment
             if (isOwnRay && index == ray2.points.length - 1)
@@ -324,6 +324,71 @@ function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
     return false;
 }
 
+function computeDoubleCollision(ray1: LiteRay_S, ray2: LiteRay_S): void
+{
+    const pointLast1 = ray1.getLastPoint();
+    const pointLast2 = ray2.getLastPoint();
+    const dir1 = ray1.direction();
+    const dir2 = ray2.direction();
+
+    // horizontal face-to-face collision
+    if (dir1.dirx == -dir2.dirx && dir1.diry == 0 && dir2.diry == 0)
+    {
+        const xMid = (ray2.speed*pointLast1.x + ray1.speed*pointLast2.x)/(ray1.speed + ray2.speed);
+        if (xMid == Math.floor(xMid)) // same collision point
+        {
+            ray1.pointLastCollision.x = xMid - dir1.dirx;
+            ray2.pointLastCollision.x = xMid - dir2.dirx
+            ray1.pointLastCollision.y = pointLast1.y;
+            ray2.pointLastCollision.y = pointLast2.y;
+        }
+        else
+        {
+            ray1.pointLastCollision.x = (dir1.dirx > 0) ? Math.floor(xMid) : Math.ceil(xMid);
+            ray1.pointLastCollision.x = (dir2.dirx > 0) ? Math.floor(xMid) : Math.ceil(xMid);
+            ray1.pointLastCollision.y = pointLast1.y;
+            ray2.pointLastCollision.y = pointLast2.y;
+        }
+    }
+    // vertical face-to-face collision
+    else if (dir1.diry == -dir2.diry && dir1.dirx == 0 && dir2.dirx == 0)
+    {
+        const yMid = (ray2.speed*pointLast1.y + ray1.speed*pointLast2.y)/(ray1.speed + ray2.speed);
+        if (yMid == Math.floor(yMid)) // same collision point
+        {
+            ray1.pointLastCollision.x = pointLast1.x;
+            ray2.pointLastCollision.x = pointLast2.x;
+            ray1.pointLastCollision.y = yMid - dir1.diry;
+            ray2.pointLastCollision.y = yMid - dir2.diry
+        }
+        else
+        {
+            ray1.pointLastCollision.x = pointLast1.x;
+            ray2.pointLastCollision.x = pointLast2.x;
+            ray1.pointLastCollision.y = (dir1.diry > 0) ? Math.floor(yMid) : Math.ceil(yMid);
+            ray1.pointLastCollision.y = (dir2.diry > 0) ? Math.floor(yMid) : Math.ceil(yMid);
+        }
+    }
+    // straight angle collision
+    else if (Math.abs(dir1.dirx) != Math.abs(dir2.dirx) && Math.abs(dir1.diry) != Math.abs(dir2.diry))
+    {
+        if (Math.abs(dir1.dirx) > 0 && Math.abs(dir2.dirx) == 0)
+        {
+            ray1.pointLastCollision.x = pointLast2.x - dir1.dirx;
+            ray1.pointLastCollision.y = pointLast1.y;
+            ray2.pointLastCollision.x = pointLast2.x;
+            ray2.pointLastCollision.y = pointLast1.y - dir2.diry;
+        }
+        else if (Math.abs(dir1.diry) > 0 && Math.abs(dir2.diry) == 0)
+        {
+            ray1.pointLastCollision.x = pointLast1.x;
+            ray1.pointLastCollision.y = pointLast2.y - dir1.diry;
+            ray2.pointLastCollision.x = pointLast1.x - dir2.dirx;
+            ray2.pointLastCollision.y = pointLast2.y;
+        }
+    }
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -338,17 +403,17 @@ if (DEPLOY)
     app.use(express.static('.'));
     const http = require('http').Server(app);
     io = require('socket.io')(http);
-    
+
     app.get('/', (req: any, res: any) => res.sendFile(__dirname + '../index.html'));
-    
-    http.listen(PORT, function(){
+
+    http.listen(PORT, function () {
         console.log(`listening on port ${PORT}...`);
-    })
+    });
 }
 else
 {
     io = require('socket.io')(PORT)
-    app.get('/', (req: any, res: any) => res.send('Hello World!'))
+    app.get('/', (req: any, res: any) => res.send('Hello World!'));
 }
 
 class Player_S extends LiteRay_S
@@ -360,7 +425,7 @@ class Player_S extends LiteRay_S
     team: string = "";
     ready: boolean = false;
 
-    creator:  boolean = false;
+    creator: boolean = false;
 
     score: number = 0;
     markForDead: boolean = false;
@@ -422,7 +487,7 @@ function setFastTestMode(state: boolean): void
 }
 
 io.on('connection', connected);
-setInterval(serverLoop, 1000/60);
+setInterval(serverLoop, 1000 / 60);
 
 
 //////////////////////////////// RECEIVE EVENTS ///////////////////////////////
@@ -433,11 +498,10 @@ function connected(socket: any)
     console.log(`Client '${socket.id}' connected`);
     updateRoomsList();
 
-    io.emit('gamesParams', {stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_ON});
-    
+    io.emit('gamesParams', { stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_ON });
+
     // create new room
-    socket.on('createNewRoom', (params: {name: string, room: string, password: string}, response: any) =>
-    {
+    socket.on('createNewRoom', (params: { name: string, room: string, password: string }, response: any) => {
         const room = params.room;
         console.log(`Client '${socket.id}' - '${params.name}' asks to create room '${room}'`);
 
@@ -446,7 +510,7 @@ function connected(socket: any)
         {
             response({
                 error: `Room '${room}' already exists. Please enter another room name.`
-              });
+            });
             return;
         }
 
@@ -475,8 +539,7 @@ function connected(socket: any)
     });
 
     // join room
-    socket.on('joinRoom', (params: {name: string, room: string, password: string}, response: any) =>
-    {
+    socket.on('joinRoom', (params: { name: string, room: string, password: string }, response: any) => {
         const room = params.room;
 
         // check if room exists
@@ -484,7 +547,7 @@ function connected(socket: any)
         {
             response({
                 error: `Room '${room}' does not exist. Please try another room.`
-                });
+            });
             return;
         }
 
@@ -496,14 +559,14 @@ function connected(socket: any)
             {
                 response({
                     error: `Room '${room}' is password-protected.`
-                    });
+                });
                 return;
             }
             else if (params.password != game.password)
             {
                 response({
                     error: `Wrong password for room '${room}'.`
-                    });
+                });
                 return;
             }
         }
@@ -515,7 +578,7 @@ function connected(socket: any)
         {
             response({
                 error: `Room '${room}' is full. Please try another room.`
-                });
+            });
             return;
         }
 
@@ -524,7 +587,7 @@ function connected(socket: any)
         let player = new Player_S();
         player.name = params.name;
         player.room = room;
-        player.no =  getNextPlayerNoInRoom(room);
+        player.no = getNextPlayerNoInRoom(room);
         //player.color = '#' + Math.random().toString(16).substr(2,6); // random color
 
         game.players.set(socket.id, player);
@@ -541,7 +604,7 @@ function connected(socket: any)
     });
 
     // max. nb. of players update
-    socket.on('setRoomParams', (params: {nbPlayersMax: number, nbRounds: number, hasTeams: boolean}, response: any) => {
+    socket.on('setRoomParams', (params: { nbPlayersMax: number, nbRounds: number, hasTeams: boolean }, response: any) => {
         const room = getPlayerRoomFromId(socket.id);
         if (room.length == 0)
             return;
@@ -563,7 +626,7 @@ function connected(socket: any)
     });
 
     // player parameters update
-    socket.on('setPlayerParams', (params: {color: string, team: string, ready: boolean}, response: any) => {
+    socket.on('setPlayerParams', (params: { color: string, team: string, ready: boolean }, response: any) => {
         const room = getPlayerRoomFromId(socket.id);
         if (room.length == 0)
             return;
@@ -576,11 +639,11 @@ function connected(socket: any)
             let player = getPlayerFromId(socket.id);
             if (player.name.length == 0)
                 return;
-            
+
             player.color = params.color;
             player.team = params.team;
             player.ready = params.ready;
-            
+
             updatePlayersParams(room);
         }
     });
@@ -588,18 +651,17 @@ function connected(socket: any)
     // start play
     socket.on('play', (params: any, response: any) => {
         const room = getPlayerRoomFromId(socket.id);
-        
+
         if (room.length == 0)
             return;
-        
+
         if (games.has(room))
         {
             const game = <Game>games.get(room);
             if (game.players.size < game.nbPlayersMax)
                 return;
 
-            switch (game.status)
-            {
+            switch (game.status) {
                 case GameStatus.SETUP:
                     // start new game
                     console.log(`Client '${socket.id}' starts game '${room}'`);
@@ -613,8 +675,7 @@ function connected(socket: any)
 
                 default:
                     // for tests only
-                    if (FAST_TEST_ON)
-                    {
+                    if (FAST_TEST_ON) {
                         game.status = GameStatus.PLAYING;
                         playNewGame(room);
                     }
@@ -625,13 +686,13 @@ function connected(socket: any)
     });
 
     // disconnection
-    socket.on('disconnect', function()
+    socket.on('disconnect', function ()
     {
         console.log(`Client '${socket.id}' disconnected`);
 
         // if creator player in setup page, kick all players in room and delete room
         let player = getPlayerFromId(socket.id);
-        
+
         // if unregistered player, nop
         if (player.name.length == 0 || player.room.length == 0)
             return;
@@ -643,8 +704,7 @@ function connected(socket: any)
         // if creator at game setup, delete room and kick all players in room
         if (player.creator)
         {
-            if (games.get(room)?.status == GameStatus.SETUP)
-            {
+            if (games.get(room)?.status == GameStatus.SETUP) {
                 games.delete(room);
                 console.log(`Creator '${player.name}' disconnected => Room '${room}' deleted`);
                 updateRoomsList();
@@ -686,7 +746,7 @@ function connected(socket: any)
     socket.on('userCommands', (data: any) => {
         let player = getPlayerFromId(socket.id);
         const room = getPlayerRoomFromId(socket.id);
-        
+
         if (!games.has(room) || !player)
             return;
 
@@ -702,15 +762,13 @@ function connected(socket: any)
 ////////////////////////////////// SEND EVENTS ////////////////////////////////
 
 
-function updateRoomsList()
-{
-    let roomsData = new Array<{room: string, nbPlayersMax: number, nbPlayers: number, status: string}>();
+function updateRoomsList() {
+    let roomsData = new Array<{ room: string, nbPlayersMax: number, nbPlayers: number, status: string }>();
     for (const [room, game] of games)
     {
         const nbPlayersCur = game.players?.size;
         let status: string = "";
-        switch (game.status)
-        {
+        switch (game.status) {
             case GameStatus.PLAYING:
                 status = "Playing";
                 break;
@@ -725,7 +783,7 @@ function updateRoomsList()
 
         }
 
-        roomsData.push({room: room, nbPlayersMax: game.nbPlayersMax, nbPlayers: nbPlayersCur, status: status});
+        roomsData.push({ room: room, nbPlayersMax: game.nbPlayersMax, nbPlayers: nbPlayersCur, status: status });
     }
 
     io.emit('roomsList', roomsData);
@@ -735,37 +793,35 @@ function updatePlayersList(room: string)
 {
     if (!games.has(room))
         return;
-    
+
     const game = <Game>games.get(room);
     if (game.players === null)
         return;
 
-    let playersData = new Array<{id: string, name: string}>();
+    let playersData = new Array<{ id: string, name: string }>();
     for (const [id, player] of game.players)
-        playersData.push({id: id, name: player.name});
+        playersData.push({ id: id, name: player.name });
 
     io.to(room).emit('updatePlayersList', playersData);
 }
 
-function updateRoomParams(room: string)
-{
+function updateRoomParams(room: string) {
     if (!games.has(room))
         return
     const game = <Game>games.get(room);
- 
+
     io.to(room).emit('updateRoomParams',
-        {room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds, hasTeams: game.hasTeams});
+        { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds, hasTeams: game.hasTeams });
 }
 
-function updatePlayersParams(room: string)
-{
+function updatePlayersParams(room: string) {
     if (!games.has(room))
         return
 
     const game = <Game>games.get(room);
-    let playersParams = new Array<{id: string, name: string, color: string, team: string, ready: boolean}>();
+    let playersParams = new Array<{ id: string, name: string, color: string, team: string, ready: boolean }>();
     for (const [id, player] of game.players)
-        playersParams.push({id: id, name: player.name, color: player.color, team: player.team, ready: player.ready}); 
+        playersParams.push({ id: id, name: player.name, color: player.color, team: player.team, ready: player.ready });
 
     io.to(room).emit('updatePlayersParams', playersParams);
 }
@@ -776,42 +832,43 @@ function kickPlayerFromRoom(room: string, id: string)
     if (!games.has(room))
         return
 
-    io.to(room).emit('kickFromRoom', {room: room, id: id});
+    io.to(room).emit('kickFromRoom', { room: room, id: id });
 }
 
 function kickAllPlayersFromRoom(room: string)
 {
-    io.to(room).emit('kickFromRoom', {room: room, id: ""});
+    io.to(room).emit('kickFromRoom', { room: room, id: "" });
 }
 
-function playNewGame(room: string)
-{
+function playNewGame(room: string) {
     if (!games.has(room))
         return;
-    
+
     const game = <Game>games.get(room);
     game.round = 0;
     newRound(room);
     game.displayStatus = DisplayStatus_S.PREPARE;
 
     game.round = 0;
-    io.to(room).emit('prepareGame', {room: room, nbPlayersMax: game.nbPlayersMax, nbRounds : game.nbRounds});
+    io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
 
     // create players
     setTimeout(() => {
-        let playerParams = Array<{id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string}>();
+        let playerParams = Array<{ id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string }>();
         for (const [id, player] of game.players)
         {
             player.score = player.nbPointsInRound = 0;
             player.killedBy = "";
 
-            playerParams.push({id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
-                x2: player.points[1].x, y2: player.points[1].y, color: player.color});
+            playerParams.push({
+                id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
+                x2: player.points[1].x, y2: player.points[1].y, color: player.color
+            });
         }
 
         io.to(room).emit('createPlayers', playerParams);
         game.displayStatus = DisplayStatus_S.PLAYING;
-    }, DURATION_PREPARE_SCREEN*1000);
+    }, DURATION_PREPARE_SCREEN * 1000);
 }
 
 
@@ -826,7 +883,7 @@ function getNextPlayerNoInRoom(room: string): number
     {
         if (player.no <= 0)
             return playerNo;
-        
+
         playerNo++;
     }
 
@@ -841,154 +898,150 @@ function initPlayersPositions(room: string): void
 
     // TODO: handle teams?
 
-    const percent = Math.floor(100*Math.random());
+    const percent = Math.floor(100 * Math.random());
     const positioning: number = Math.floor(percent / 25) + 1;
 
-    switch(positioning)
+    switch (positioning)
     {
         case 1: // face to face
-        {
-            const dy = 80;
-            const remain = (game.nbPlayersMax % 2);
-            for (const [id, player] of game.players)
             {
-                const side = (player.no % 2); // left / right
-                const nbPlayersInSide = (0 < side && side <= remain) ?
-                    Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
-                const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
+                const dy = 80;
+                const remain = (game.nbPlayersMax % 2);
+                for (const [id, player] of game.players) {
+                    const side = (player.no % 2); // left / right
+                    const nbPlayersInSide = (0 < side && side <= remain) ?
+                        Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
+                    const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
 
-                const xStart = (side == 1) ? 50 : STADIUM_W - 50;
-                let yMin = (nbPlayersInSide % 2 == 0) ?
-                    STADIUM_H/2 - (Math.floor(nbPlayersInSide/2) - 0.5)*dy :
-                    STADIUM_H/2 - Math.floor(nbPlayersInSide/2)*dy;
-                const yStart = yMin + (noPlayerInSide - 1)*dy;
-                //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
-
-                const dx = (side == 1) ? 1 : -1;
-                
-                player.reset();
-                player.addPoint(xStart, yStart);
-                player.addPoint(xStart + dx, yStart);
-            }
-            break;
-        }
-
-        case 2: // reverse face to face
-        {
-            const dy = 2;
-            const remain = (game.nbPlayersMax % 2);
-            for (const [id, player] of game.players)
-            {
-                const side = (player.no % 2); // left / right
-                const nbPlayersInSide = (0 < side && side <= remain) ?
-                    Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
-                const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
-
-                const xStart = STADIUM_W / 2;
-                let yMin = (nbPlayersInSide % 2 == 0) ?
-                    STADIUM_H/2 - (Math.floor(nbPlayersInSide/2) - 0.5)*dy :
-                    STADIUM_H/2 - Math.floor(nbPlayersInSide/2)*dy;
-                const yStart = yMin + (noPlayerInSide - 1)*dy;
-                //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
-
-                const dx = (side == 1) ? -1 : 1;
-                
-                player.reset();
-                player.addPoint(xStart, yStart);
-                player.addPoint(xStart + dx, yStart);
-            }
-            break;
-        }
-
-        case 3: // around
-        {
-            const dxy = 80;
-            const remain = (game.nbPlayersMax % 4);
-            for (const [id, player] of game.players)
-            {
-                const side = (player.no % 4); // left / right / top / bottom
-                const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
-                    Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
-                const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
-
-                if (side == 1 || side == 2) // left / right
-                {
-                    const xStart = (side == 1) ?
-                        STADIUM_W/2 - (STADIUM_H/2 - 20) : STADIUM_W/2 + (STADIUM_H/2 - 20);
+                    const xStart = (side == 1) ? 50 : STADIUM_W - 50;
                     let yMin = (nbPlayersInSide % 2 == 0) ?
-                        STADIUM_H/2 - (Math.floor(nbPlayersInSide/2) - 0.5)*dxy :
-                        STADIUM_H/2 - Math.floor(nbPlayersInSide/2)*dxy;
-                    const yStart = yMin + (noPlayerInSide - 1)*dxy;
+                        STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dy :
+                        STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dy;
+                    const yStart = yMin + (noPlayerInSide - 1) * dy;
+                    //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
 
                     const dx = (side == 1) ? 1 : -1;
+
                     player.reset();
                     player.addPoint(xStart, yStart);
                     player.addPoint(xStart + dx, yStart);
                 }
-                else    // top /right
-                {
-                    let xMin = (nbPlayersInSide % 2 == 0) ?
-                        STADIUM_W/2 - (Math.floor(nbPlayersInSide/2) - 0.5)*dxy :
-                        STADIUM_W/2 - Math.floor(nbPlayersInSide/2)*dxy;
-                        
-                    const xStart = xMin + (noPlayerInSide - 1)*dxy;
-                    const yStart = (side == 3) ?
-                        STADIUM_H/2 - (STADIUM_H/2 - 20) : STADIUM_H/2 + (STADIUM_H/2 - 20);
-
-                    const dy = (side == 3) ? 1 : -1;
-                    player.reset();
-                    player.addPoint(xStart, yStart);
-                    player.addPoint(xStart, yStart + dy);
-                }
-                //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                break;
             }
-            break;
-        }
 
-        case 4: // reverse around
-        {
-            const dxy = 2*Math.ceil(game.nbPlayersMax / 4);
-            const remain = (game.nbPlayersMax % 4);
-            for (const [id, player] of game.players)
+        case 2: // reverse face to face
             {
-                const side = (player.no % 4); // left / right / top / bottom
-                const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
-                    Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
-                const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
+                const dy = 2;
+                const remain = (game.nbPlayersMax % 2);
+                for (const [id, player] of game.players) {
+                    const side = (player.no % 2); // left / right
+                    const nbPlayersInSide = (0 < side && side <= remain) ?
+                        Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
+                    const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
 
-                if (side == 1 || side == 2) // left / right
-                {
-                    const xStart = (side == 1) ?
-                        STADIUM_W/2 - dxy/2: STADIUM_W/2 + dxy/2;
+                    const xStart = STADIUM_W / 2;
                     let yMin = (nbPlayersInSide % 2 == 0) ?
-                        STADIUM_H/2 - (Math.floor(nbPlayersInSide/2) - 0.5)*dxy :
-                        STADIUM_H/2 - Math.floor(nbPlayersInSide/2)*dxy;
-                    const yStart = yMin + (noPlayerInSide - 1)*dxy;
+                        STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dy :
+                        STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dy;
+                    const yStart = yMin + (noPlayerInSide - 1) * dy;
+                    //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
 
                     const dx = (side == 1) ? -1 : 1;
+
                     player.reset();
                     player.addPoint(xStart, yStart);
                     player.addPoint(xStart + dx, yStart);
                 }
-                else    // top /right
-                {
-                    let xMin = (nbPlayersInSide % 2 == 0) ?
-                        STADIUM_W/2 - (Math.floor(nbPlayersInSide/2) - 0.5)*dxy :
-                        STADIUM_W/2 - Math.floor(nbPlayersInSide/2)*dxy;
-                        
-                    const xStart = xMin + (noPlayerInSide - 1)*dxy;
-                    const yStart = (side == 3) ?
-                        STADIUM_H/2 - dxy/2: STADIUM_H/2 + dxy/2;
-
-                    const dy = (side == 3) ? -1 : 1;
-                    player.reset();
-                    player.addPoint(xStart, yStart);
-                    player.addPoint(xStart, yStart + dy);
-                }
-                //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                break;
             }
-            break;
-        }
+
+        case 3: // around
+            {
+                const dxy = 80;
+                const remain = (game.nbPlayersMax % 4);
+                for (const [id, player] of game.players) {
+                    const side = (player.no % 4); // left / right / top / bottom
+                    const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
+                        Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
+                    const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
+
+                    if (side == 1 || side == 2) // left / right
+                    {
+                        const xStart = (side == 1) ?
+                            STADIUM_W / 2 - (STADIUM_H / 2 - 20) : STADIUM_W / 2 + (STADIUM_H / 2 - 20);
+                        let yMin = (nbPlayersInSide % 2 == 0) ?
+                            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                        const yStart = yMin + (noPlayerInSide - 1) * dxy;
+
+                        const dx = (side == 1) ? 1 : -1;
+                        player.reset();
+                        player.addPoint(xStart, yStart);
+                        player.addPoint(xStart + dx, yStart);
+                    }
+                    else    // top /right
+                    {
+                        let xMin = (nbPlayersInSide % 2 == 0) ?
+                            STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                            STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+
+                        const xStart = xMin + (noPlayerInSide - 1) * dxy;
+                        const yStart = (side == 3) ?
+                            STADIUM_H / 2 - (STADIUM_H / 2 - 20) : STADIUM_H / 2 + (STADIUM_H / 2 - 20);
+
+                        const dy = (side == 3) ? 1 : -1;
+                        player.reset();
+                        player.addPoint(xStart, yStart);
+                        player.addPoint(xStart, yStart + dy);
+                    }
+                    //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                }
+                break;
+            }
+
+        case 4: // reverse around
+            {
+                const dxy = 2 * Math.ceil(game.nbPlayersMax / 4);
+                const remain = (game.nbPlayersMax % 4);
+                for (const [id, player] of game.players) {
+                    const side = (player.no % 4); // left / right / top / bottom
+                    const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
+                        Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
+                    const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
+
+                    if (side == 1 || side == 2) // left / right
+                    {
+                        const xStart = (side == 1) ?
+                            STADIUM_W / 2 - dxy / 2 : STADIUM_W / 2 + dxy / 2;
+                        let yMin = (nbPlayersInSide % 2 == 0) ?
+                            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                        const yStart = yMin + (noPlayerInSide - 1) * dxy;
+
+                        const dx = (side == 1) ? -1 : 1;
+                        player.reset();
+                        player.addPoint(xStart, yStart);
+                        player.addPoint(xStart + dx, yStart);
+                    }
+                    else    // top /right
+                    {
+                        let xMin = (nbPlayersInSide % 2 == 0) ?
+                            STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                            STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+
+                        const xStart = xMin + (noPlayerInSide - 1) * dxy;
+                        const yStart = (side == 3) ?
+                            STADIUM_H / 2 - dxy / 2 : STADIUM_H / 2 + dxy / 2;
+
+                        const dy = (side == 3) ? -1 : 1;
+                        player.reset();
+                        player.addPoint(xStart, yStart);
+                        player.addPoint(xStart, yStart + dy);
+                    }
+                    //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                }
+                break;
+            }
     }
 
     // finalization
@@ -999,10 +1052,9 @@ function initPlayersPositions(room: string): void
         player.killedBy = "";
         player.nbPointsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
-        
+
         // for fast test only
-        if (FAST_TEST_ON)
-        {
+        if (FAST_TEST_ON) {
             const playersColors = ["#ffff00", "#0000ff", "#ff0000", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
             player.color = playersColors[(player.no - 1) % playersColors.length];
             player.name = `Player ${player.no}`;
@@ -1010,7 +1062,7 @@ function initPlayersPositions(room: string): void
             if (FAST_TEST_HAS_TEAMS)
                 player.team = (player.no % 2 == 1) ? "Team 1" : "Team 2";
         }
-    }    
+    }
 }
 
 function initPlayersSpeeds(room: string): void
@@ -1019,7 +1071,7 @@ function initPlayersSpeeds(room: string): void
         return;
     const game = <Game>games.get(room);
 
-    const percent = Math.floor(100*Math.random());
+    const percent = Math.floor(100 * Math.random());
     let speed = 1;
     if (percent >= 80)
         speed = 3;
@@ -1039,7 +1091,7 @@ function serverLoop()
     {
         if (game.status != GameStatus.PLAYING || game.displayStatus != DisplayStatus_S.PLAYING)
             continue;
-        
+
         userInteraction(room);
         physicsLoop(room);
         gameLogic(room);
@@ -1073,13 +1125,12 @@ function roundFinished(room: string): boolean
     {
         let teamsAlive = new Array<string>();
         for (const [id, player] of game.players)
-            if (player.alive)
-            {
+            if (player.alive) {
                 if (!teamsAlive.includes(player.team))
                     teamsAlive.push(player.team);
             }
-        
-            nbPlayersOrTeamsAlive = teamsAlive.length;
+
+        nbPlayersOrTeamsAlive = teamsAlive.length;
     }
     else
     {
@@ -1108,42 +1159,58 @@ function physicsLoop(room: string): void
     // check for collisions
     game.players.forEach((player) => {
 
-        if (player.alive)
-        {
+        if (player.alive) {
             for (const [id, otherPlayer] of game.players)
             {
-                if (collideRay(player, <LiteRay_S>otherPlayer))
-                {
+                if (collideRay(player, <LiteRay_S>otherPlayer)) {
                     player.markForDead = true;
                     player.killedBy = id;
                     //console.log(`PLAYER ${player.no} COLLISION RAY`);
-                }   
+                }
             }
 
             for (const wall of game.stadium)
             {
                 if (!player.markForDead)
-                if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
-                {
-                    player.markForDead = true;
-                    player.killedBy = "WALL";
-                    //console.log(`PLAYER ${player.no} COLLISION WALL`);
-                }   
+                    if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
+                        player.markForDead = true;
+                        player.killedBy = "WALL";
+                        //console.log(`PLAYER ${player.no} COLLISION WALL`);
+                    }
             }
         }
     });
 
-    // TODO: handle drawing at linear double collisions
-
-    game.players.forEach((player) => {
+    // check for double collisions
+    for (const [id, player] of game.players)
+    {
         if (player.markForDead)
         {
+            // check if double collision
+            const idKiller: string = player.killedBy;
+            const hasKillerPlayer = (idKiller.length > 0 && idKiller != "WALL")
+            let killer = null;
+            if (hasKillerPlayer && game.players.has(idKiller))
+                killer = <Player_S>game.players.get(idKiller);
+            
+            const isDoubleCollision = (killer != null) && killer.markForDead && (killer.killedBy == id);
+            if (isDoubleCollision)
+                computeDoubleCollision(<LiteRay_S>player, <LiteRay_S>killer);
+        }
+    }
+
+    // apply collisions and deaths
+    for (const [id, player] of game.players)
+    {
+        if (player.markForDead)
+        {
+            player.applyCollision();
             player.alive = false;
             player.markForDead = false;
-            player.applyCollision();
         }
-    });
+    }
 
+    // remove dead players' rays if option enabled
     if (game.resetOnKilled)
         game.players.forEach((player) => {
             if (!player.alive)
@@ -1154,7 +1221,7 @@ function physicsLoop(room: string): void
 function userInteraction(room: string): void
 {
     if (!games.has(room))
-        return;      
+        return;
     const game = <Game>games.get(room);
     game.players.forEach((player) => { player.keyControl(); })
 }
@@ -1162,16 +1229,16 @@ function userInteraction(room: string): void
 function scoring(room: string)
 {
     if (!games.has(room))
-        return;      
+        return;
     const game = <Game>games.get(room);
 
     // update players scores
-    switch(game.mode)
+    switch (game.mode)
     {
         case GameMode.BODYCOUNT:
             for (const [id, player] of game.players)
             {
-                const idKiller : string = player.killedBy;
+                const idKiller: string = player.killedBy;
 
                 const hasKillerPlayer = (idKiller.length > 0 && idKiller != "WALL")
                 let killer = null;
@@ -1198,11 +1265,11 @@ function scoring(room: string)
                     killer.score++;
                     killer.nbPointsInRound++;
                 }
-                
+
                 //console.log(`${player.name}: ${player.score} point(s)`);
             }
             break;
-        
+
         case GameMode.SURVIVOR:
             for (const [id, player] of game.players)
             {
@@ -1214,12 +1281,12 @@ function scoring(room: string)
             }
             break;
     }
-    
+
     // display scores
     game.displayStatus = DisplayStatus_S.SCORES;
-    let scoreParams = new Array<{id: string, team: string, score: number, nbKills: number}>();
+    let scoreParams = new Array<{ id: string, team: string, score: number, nbKills: number }>();
     for (const [id, player] of game.players)
-        scoreParams.push({id: id, team: player.team, score: player.score, nbKills: player.nbPointsInRound});
+        scoreParams.push({ id: id, team: player.team, score: player.score, nbKills: player.nbPointsInRound });
     io.to(room).emit('displayScores', scoreParams);
 
     // check if player / teams have reached max. score
@@ -1233,7 +1300,7 @@ function scoring(room: string)
         for (const [id, player] of game.players)
         {
             const team = player.team;
-    
+
             if (!teamsScores.has(team))
                 teamsScores.set(team, 0);
 
@@ -1244,15 +1311,14 @@ function scoring(room: string)
             if (score >= game.nbRounds)
                 winners.push(team);
     }
-    else
-    {
+    else {
         for (const [id, player] of game.players)
             if (player.score >= game.nbRounds)
                 winners.push(id);
     }
 
     if (winners.length == 0)
-        setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN*1000);
+        setTimeout(() => { newRound(room); }, DURATION_SCORES_SCREEN * 1000);
     else
         gameOver(room, winners);
 }
@@ -1261,7 +1327,7 @@ function newRound(room: string): void
 {
     if (!games.has(room))
         return;
-        
+
     const game = <Game>games.get(room);
     game.round++;
     console.log(`ROOM ${room} - ROUND ${game.round}`);
@@ -1269,7 +1335,7 @@ function newRound(room: string): void
     newStadium(room);
     initPlayersPositions(room);
     initPlayersSpeeds(room);
-    game.resetOnKilled = (Math.floor(100*Math.random()) >= 50);
+    game.resetOnKilled = (Math.floor(100 * Math.random()) >= 50);
     game.displayStatus = DisplayStatus_S.PLAYING;
 }
 
@@ -1281,8 +1347,8 @@ function newStadium(room: string): void
     const game = <Game>games.get(room);
     game.stadium = new Array<Segment_S>();
 
-    const percentWallV = Math.floor(100*Math.random());
-    const percentWallH = Math.floor(100*Math.random());
+    const percentWallV = Math.floor(100 * Math.random());
+    const percentWallH = Math.floor(100 * Math.random());
     const wallsV: boolean = (percentWallV >= 50);
     const wallsH: boolean = (percentWallH >= 50);;
 
@@ -1291,7 +1357,7 @@ function newStadium(room: string): void
         let wallLeft1 = new Segment_S(0, 0, 0, STADIUM_H, "darkgrey");
         let wallRight1 = new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey");
         let wallLeft2 = new Segment_S(1, 0, 1, STADIUM_H, "grey");
-        let wallRight2 = new Segment_S(STADIUM_W-1, 0, STADIUM_W-1, 480, "grey");
+        let wallRight2 = new Segment_S(STADIUM_W - 1, 0, STADIUM_W - 1, 480, "grey");
         game.stadium.push(wallLeft1);
         game.stadium.push(wallRight1);
         game.stadium.push(wallLeft2);
@@ -1303,7 +1369,7 @@ function newStadium(room: string): void
         let wallTop1 = new Segment_S(0, 0, STADIUM_W, 0, "darkgrey");
         let wallBottom1 = new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey");
         let wallTop2 = new Segment_S(0, 1, STADIUM_W, 1, "grey");
-        let wallBottom2 = new Segment_S(0, STADIUM_H-1, STADIUM_W, STADIUM_H-1, "grey");
+        let wallBottom2 = new Segment_S(0, STADIUM_H - 1, STADIUM_W, STADIUM_H - 1, "grey");
         game.stadium.push(wallTop1);
         game.stadium.push(wallBottom1);
         game.stadium.push(wallTop2);
@@ -1319,9 +1385,9 @@ function sendStadium(room: string): void
         return;
 
     const game = <Game>games.get(room);
-    let stadiumParams = new Array<{x1: number, y1: number, x2: number, y2: number, color: string}>();
+    let stadiumParams = new Array<{ x1: number, y1: number, x2: number, y2: number, color: string }>();
     for (const wall of game.stadium)
-        stadiumParams.push({x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y, color: wall.color});
+        stadiumParams.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y, color: wall.color });
 
     io.to(room).emit('stadium', stadiumParams);
 }
@@ -1345,8 +1411,8 @@ function gameOver(room: string, winners: Array<string>): void
         for (const [id, player] of game.players)
             player.ready = false;
 
-        io.to(room).emit('displaySetup', {room: room, resetReady: true});
-    }, DURATION_GAME_OVER_SCREEN*1000); 
+        io.to(room).emit('displaySetup', { room: room, resetReady: true });
+    }, DURATION_GAME_OVER_SCREEN * 1000);
 }
 
 
@@ -1375,7 +1441,7 @@ function getPlayerFromId(id: string): Player_S
 function getPlayerRoomFromId(id: string): string
 {
     let player = getPlayerFromId(id);
-        
+
     // if unregistered player, nop
     if (player.name.length == 0 || player.room.length == 0)
         return "";

@@ -231,6 +231,61 @@ function collideRay(ray1, ray2) {
     }
     return false;
 }
+function computeDoubleCollision(ray1, ray2) {
+    const pointLast1 = ray1.getLastPoint();
+    const pointLast2 = ray2.getLastPoint();
+    const dir1 = ray1.direction();
+    const dir2 = ray2.direction();
+    // horizontal face-to-face collision
+    if (dir1.dirx == -dir2.dirx && dir1.diry == 0 && dir2.diry == 0) {
+        const xMid = (ray2.speed * pointLast1.x + ray1.speed * pointLast2.x) / (ray1.speed + ray2.speed);
+        if (xMid == Math.floor(xMid)) // same collision point
+         {
+            ray1.pointLastCollision.x = xMid - dir1.dirx;
+            ray2.pointLastCollision.x = xMid - dir2.dirx;
+            ray1.pointLastCollision.y = pointLast1.y;
+            ray2.pointLastCollision.y = pointLast2.y;
+        }
+        else {
+            ray1.pointLastCollision.x = (dir1.dirx > 0) ? Math.floor(xMid) : Math.ceil(xMid);
+            ray1.pointLastCollision.x = (dir2.dirx > 0) ? Math.floor(xMid) : Math.ceil(xMid);
+            ray1.pointLastCollision.y = pointLast1.y;
+            ray2.pointLastCollision.y = pointLast2.y;
+        }
+    }
+    // vertical face-to-face collision
+    else if (dir1.diry == -dir2.diry && dir1.dirx == 0 && dir2.dirx == 0) {
+        const yMid = (ray2.speed * pointLast1.y + ray1.speed * pointLast2.y) / (ray1.speed + ray2.speed);
+        if (yMid == Math.floor(yMid)) // same collision point
+         {
+            ray1.pointLastCollision.x = pointLast1.x;
+            ray2.pointLastCollision.x = pointLast2.x;
+            ray1.pointLastCollision.y = yMid - dir1.diry;
+            ray2.pointLastCollision.y = yMid - dir2.diry;
+        }
+        else {
+            ray1.pointLastCollision.x = pointLast1.x;
+            ray2.pointLastCollision.x = pointLast2.x;
+            ray1.pointLastCollision.y = (dir1.diry > 0) ? Math.floor(yMid) : Math.ceil(yMid);
+            ray1.pointLastCollision.y = (dir2.diry > 0) ? Math.floor(yMid) : Math.ceil(yMid);
+        }
+    }
+    // straight angle collision
+    else if (Math.abs(dir1.dirx) != Math.abs(dir2.dirx) && Math.abs(dir1.diry) != Math.abs(dir2.diry)) {
+        if (Math.abs(dir1.dirx) > 0 && Math.abs(dir2.dirx) == 0) {
+            ray1.pointLastCollision.x = pointLast2.x - dir1.dirx;
+            ray1.pointLastCollision.y = pointLast1.y;
+            ray2.pointLastCollision.x = pointLast2.x;
+            ray2.pointLastCollision.y = pointLast1.y - dir2.diry;
+        }
+        else if (Math.abs(dir1.diry) > 0 && Math.abs(dir2.diry) == 0) {
+            ray1.pointLastCollision.x = pointLast1.x;
+            ray1.pointLastCollision.y = pointLast2.y - dir1.diry;
+            ray2.pointLastCollision.x = pointLast1.x - dir2.dirx;
+            ray2.pointLastCollision.y = pointLast2.y;
+        }
+    }
+}
 ///////////////////////////////////////////////////////////////////////////////
 const express = require('express');
 const app = express();
@@ -586,8 +641,10 @@ function playNewGame(room) {
         for (const [id, player] of game.players) {
             player.score = player.nbPointsInRound = 0;
             player.killedBy = "";
-            playerParams.push({ id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
-                x2: player.points[1].x, y2: player.points[1].y, color: player.color });
+            playerParams.push({
+                id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
+                x2: player.points[1].x, y2: player.points[1].y, color: player.color
+            });
         }
         io.to(room).emit('createPlayers', playerParams);
         game.displayStatus = DisplayStatus_S.PLAYING;
@@ -841,14 +898,29 @@ function physicsLoop(room) {
             }
         }
     });
-    // TODO: handle drawing at linear double collisions
-    game.players.forEach((player) => {
+    // check for double collisions
+    for (const [id, player] of game.players) {
         if (player.markForDead) {
+            // check if double collision
+            const idKiller = player.killedBy;
+            const hasKillerPlayer = (idKiller.length > 0 && idKiller != "WALL");
+            let killer = null;
+            if (hasKillerPlayer && game.players.has(idKiller))
+                killer = game.players.get(idKiller);
+            const isDoubleCollision = (killer != null) && killer.markForDead && (killer.killedBy == id);
+            if (isDoubleCollision)
+                computeDoubleCollision(player, killer);
+        }
+    }
+    // apply collisions and deaths
+    for (const [id, player] of game.players) {
+        if (player.markForDead) {
+            player.applyCollision();
             player.alive = false;
             player.markForDead = false;
-            player.applyCollision();
         }
-    });
+    }
+    // remove dead players' rays if option enabled
     if (game.resetOnKilled)
         game.players.forEach((player) => {
             if (!player.alive)
