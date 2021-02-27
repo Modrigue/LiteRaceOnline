@@ -47,15 +47,12 @@ function userInput(obj: any, canvas: HTMLCanvasElement)
                 break;
         }
 
-        if (justPressed === true)
+        if (justPressed)
         {
             emitUserCommands(obj);
             justPressed = false;
-        }
 
-        // prevent scrolling
-        if (e.key != 'F5' && e.key != 'F11')
-        {
+            // prevent scrolling
             e.preventDefault();
             return false;
         }
@@ -64,26 +61,32 @@ function userInput(obj: any, canvas: HTMLCanvasElement)
     canvas.addEventListener('keyup', function(e)
     {
         isDown = false;
+        let hasReleasedKey: boolean = false;
 
         switch(e.key)
         {
             case 'ArrowLeft':
+                hasReleasedKey = true;
                 obj.left = false;
                 break;
 
             case 'ArrowUp':
+                hasReleasedKey = true;
                 obj.up = false;
                 break;
 
             case "ArrowRight":
+                hasReleasedKey = true;
                 obj.right = false;
                 break;
 
             case "ArrowDown":
+                hasReleasedKey = true;
                 obj.down = false;
                 break;
 
             case ' ':
+                hasReleasedKey = true;
                 obj.action = false;
                 break;
         }
@@ -91,7 +94,7 @@ function userInput(obj: any, canvas: HTMLCanvasElement)
         emitUserCommands(obj);
 
         // prevent scrolling
-        if (e.key != 'F5' && e.key != 'F11')
+        if (hasReleasedKey)
         {
             e.preventDefault();
             return false;
