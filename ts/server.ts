@@ -1271,12 +1271,39 @@ function scoring(room: string)
             break;
 
         case GameMode.SURVIVOR:
-            for (const [id, player] of game.players)
+            if (game.hasTeams)
             {
-                if (player.alive)
+                // get alive teams
+                let teamsAlive = new Array<string>();
+                for (const [id, player] of game.players)
                 {
-                    player.score++;
-                    player.nbPointsInRound++;
+                    const team = player.team;
+            
+                    if (player.alive && !teamsAlive.includes(team))
+                        teamsAlive.push(team);
+                }
+
+                // update alive team's 1st player score
+                if (teamsAlive.length == 1)
+                    for (const [id, player] of game.players)
+                    {
+                        if (player.team == teamsAlive[0])
+                        {
+                            player.score++;
+                            player.nbPointsInRound++;
+                            break;
+                        }
+                    }
+            }
+            else
+            {
+                for (const [id, player] of game.players)
+                {
+                    if (player.alive)
+                    {
+                        player.score++;
+                        player.nbPointsInRound++;
+                    }
                 }
             }
             break;
