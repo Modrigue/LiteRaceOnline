@@ -52,6 +52,13 @@ function userInput(obj: any, canvas: HTMLCanvasElement)
             emitUserCommands(obj);
             justPressed = false;
         }
+
+        // prevent scrolling
+        if (e.key != 'F5' && e.key != 'F11')
+        {
+            e.preventDefault();
+            return false;
+        }
     });
     
     canvas.addEventListener('keyup', function(e)
@@ -82,6 +89,13 @@ function userInput(obj: any, canvas: HTMLCanvasElement)
         }
 
         emitUserCommands(obj);
+
+        // prevent scrolling
+        if (e.key != 'F5' && e.key != 'F11')
+        {
+            e.preventDefault();
+            return false;
+        }
     });    
 }
 

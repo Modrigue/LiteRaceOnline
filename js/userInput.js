@@ -40,6 +40,11 @@ function userInput(obj, canvas) {
             emitUserCommands(obj);
             justPressed = false;
         }
+        // prevent scrolling
+        if (e.key != 'F5' && e.key != 'F11') {
+            e.preventDefault();
+            return false;
+        }
     });
     canvas.addEventListener('keyup', function (e) {
         isDown = false;
@@ -61,6 +66,11 @@ function userInput(obj, canvas) {
                 break;
         }
         emitUserCommands(obj);
+        // prevent scrolling
+        if (e.key != 'F5' && e.key != 'F11') {
+            e.preventDefault();
+            return false;
+        }
     });
 }
 function emitUserCommands(obj) {
