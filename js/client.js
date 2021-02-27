@@ -47,6 +47,7 @@ socket.on('connect', () => {
 socket.on('gamesParams', (params) => {
     STADIUM_W_CLIENT = params.stadiumW;
     STADIUM_H_CLIENT = params.stadiumH;
+    onResize();
     canvas.width = STADIUM_W_CLIENT;
     canvas.height = STADIUM_H_CLIENT;
     // for test purposes only

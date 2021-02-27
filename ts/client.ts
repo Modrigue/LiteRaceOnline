@@ -56,6 +56,7 @@ socket.on('gamesParams', (params: {stadiumW: number, stadiumH: number, fastTestM
     STADIUM_W_CLIENT = params.stadiumW;
     STADIUM_H_CLIENT = params.stadiumH;
 
+    onResize();
     canvas.width = STADIUM_W_CLIENT;
     canvas.height = STADIUM_H_CLIENT;
 
