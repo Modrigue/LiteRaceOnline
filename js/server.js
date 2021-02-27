@@ -15,7 +15,7 @@ var GameMode;
 const FAST_TEST_ON = false;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
 const FAST_TEST_NB_PLAYERS = 2;
-const FAST_TEST_NB_ROUNDS = 5;
+const FAST_TEST_NB_ROUNDS = 10;
 const FAST_TEST_HAS_TEAMS = false;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
 class Point2_S {
@@ -340,8 +340,9 @@ class Game {
         this.hasTeams = false;
         this.mode = GameMode.BODYCOUNT;
         this.stadium = new Array();
+        this.stadiumId = "0";
         this.nbRounds = 10;
-        this.round = 0;
+        this.roundNo = 0;
         this.resetOnKilled = false;
         this.password = "";
         this.status = GameStatus.NONE;
@@ -632,10 +633,9 @@ function playNewGame(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
-    game.round = 0;
+    game.roundNo = 0;
     newRound(room);
     game.displayStatus = DisplayStatus_S.PREPARE;
-    game.round = 0;
     io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
     // create players
     setTimeout(() => {
@@ -671,129 +671,163 @@ function initPlayersPositions(room) {
     // TODO: handle teams?
     const percent = Math.floor(100 * Math.random());
     const positioning = Math.floor(percent / 25) + 1;
-    switch (positioning) {
-        case 1: // face to face
-            {
-                const dy = 80;
-                const remain = (game.nbPlayersMax % 2);
-                for (const [id, player] of game.players) {
-                    const side = (player.no % 2); // left / right
-                    const nbPlayersInSide = (0 < side && side <= remain) ?
-                        Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
-                    const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
-                    const xStart = (side == 1) ? 50 : STADIUM_W - 50;
-                    let yMin = (nbPlayersInSide % 2 == 0) ?
-                        STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dy :
-                        STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dy;
-                    const yStart = yMin + (noPlayerInSide - 1) * dy;
-                    //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
-                    const dx = (side == 1) ? 1 : -1;
-                    player.reset();
-                    player.addPoint(xStart, yStart);
-                    player.addPoint(xStart + dx, yStart);
-                }
-                break;
-            }
-        case 2: // reverse face to face
-            {
-                const dy = 2;
-                const remain = (game.nbPlayersMax % 2);
-                for (const [id, player] of game.players) {
-                    const side = (player.no % 2); // left / right
-                    const nbPlayersInSide = (0 < side && side <= remain) ?
-                        Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
-                    const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
-                    const xStart = STADIUM_W / 2;
-                    let yMin = (nbPlayersInSide % 2 == 0) ?
-                        STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dy :
-                        STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dy;
-                    const yStart = yMin + (noPlayerInSide - 1) * dy;
-                    //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
-                    const dx = (side == 1) ? -1 : 1;
-                    player.reset();
-                    player.addPoint(xStart, yStart);
-                    player.addPoint(xStart + dx, yStart);
-                }
-                break;
-            }
-        case 3: // around
-            {
-                const dxy = 80;
-                const remain = (game.nbPlayersMax % 4);
-                for (const [id, player] of game.players) {
-                    const side = (player.no % 4); // left / right / top / bottom
-                    const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
-                        Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
-                    const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
-                    if (side == 1 || side == 2) // left / right
-                     {
-                        const xStart = (side == 1) ?
-                            STADIUM_W / 2 - (STADIUM_H / 2 - 20) : STADIUM_W / 2 + (STADIUM_H / 2 - 20);
+    if (game.stadiumId == "0") // vanilla stadium
+     {
+        switch (positioning) {
+            case 1: // face to face
+                {
+                    const dy = 80;
+                    const remain = (game.nbPlayersMax % 2);
+                    for (const [id, player] of game.players) {
+                        const side = (player.no % 2); // left / right
+                        const nbPlayersInSide = (0 < side && side <= remain) ?
+                            Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
+                        const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
+                        const xStart = (side == 1) ? 50 : STADIUM_W - 50;
                         let yMin = (nbPlayersInSide % 2 == 0) ?
-                            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
-                            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
-                        const yStart = yMin + (noPlayerInSide - 1) * dxy;
+                            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dy :
+                            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dy;
+                        const yStart = yMin + (noPlayerInSide - 1) * dy;
+                        //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
                         const dx = (side == 1) ? 1 : -1;
                         player.reset();
                         player.addPoint(xStart, yStart);
                         player.addPoint(xStart + dx, yStart);
                     }
-                    else // top /right
-                     {
-                        let xMin = (nbPlayersInSide % 2 == 0) ?
-                            STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
-                            STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
-                        const xStart = xMin + (noPlayerInSide - 1) * dxy;
-                        const yStart = (side == 3) ?
-                            STADIUM_H / 2 - (STADIUM_H / 2 - 20) : STADIUM_H / 2 + (STADIUM_H / 2 - 20);
-                        const dy = (side == 3) ? 1 : -1;
-                        player.reset();
-                        player.addPoint(xStart, yStart);
-                        player.addPoint(xStart, yStart + dy);
-                    }
-                    //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                    break;
                 }
-                break;
-            }
-        case 4: // reverse around
-            {
-                const dxy = 2 * Math.ceil(game.nbPlayersMax / 4);
-                const remain = (game.nbPlayersMax % 4);
-                for (const [id, player] of game.players) {
-                    const side = (player.no % 4); // left / right / top / bottom
-                    const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
-                        Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
-                    const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
-                    if (side == 1 || side == 2) // left / right
-                     {
-                        const xStart = (side == 1) ?
-                            STADIUM_W / 2 - dxy / 2 : STADIUM_W / 2 + dxy / 2;
+            case 2: // reverse face to face
+                {
+                    const dy = 2;
+                    const remain = (game.nbPlayersMax % 2);
+                    for (const [id, player] of game.players) {
+                        const side = (player.no % 2); // left / right
+                        const nbPlayersInSide = (0 < side && side <= remain) ?
+                            Math.ceil(game.nbPlayersMax / 2) : Math.floor(game.nbPlayersMax / 2);
+                        const noPlayerInSide = Math.floor((player.no - 1) / 2) + 1;
+                        const xStart = STADIUM_W / 2;
                         let yMin = (nbPlayersInSide % 2 == 0) ?
-                            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
-                            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
-                        const yStart = yMin + (noPlayerInSide - 1) * dxy;
+                            STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dy :
+                            STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dy;
+                        const yStart = yMin + (noPlayerInSide - 1) * dy;
+                        //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
                         const dx = (side == 1) ? -1 : 1;
                         player.reset();
                         player.addPoint(xStart, yStart);
                         player.addPoint(xStart + dx, yStart);
                     }
-                    else // top /right
-                     {
-                        let xMin = (nbPlayersInSide % 2 == 0) ?
-                            STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
-                            STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
-                        const xStart = xMin + (noPlayerInSide - 1) * dxy;
-                        const yStart = (side == 3) ?
-                            STADIUM_H / 2 - dxy / 2 : STADIUM_H / 2 + dxy / 2;
-                        const dy = (side == 3) ? -1 : 1;
+                    break;
+                }
+            case 3: // around
+                {
+                    const dxy = 80;
+                    const remain = (game.nbPlayersMax % 4);
+                    for (const [id, player] of game.players) {
+                        const side = (player.no % 4); // left / right / top / bottom
+                        const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
+                            Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
+                        const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
+                        if (side == 1 || side == 2) // left / right
+                         {
+                            const xStart = (side == 1) ?
+                                STADIUM_W / 2 - (STADIUM_H / 2 - 20) : STADIUM_W / 2 + (STADIUM_H / 2 - 20);
+                            let yMin = (nbPlayersInSide % 2 == 0) ?
+                                STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                                STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                            const yStart = yMin + (noPlayerInSide - 1) * dxy;
+                            const dx = (side == 1) ? 1 : -1;
+                            player.reset();
+                            player.addPoint(xStart, yStart);
+                            player.addPoint(xStart + dx, yStart);
+                        }
+                        else // top /right
+                         {
+                            let xMin = (nbPlayersInSide % 2 == 0) ?
+                                STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                                STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                            const xStart = xMin + (noPlayerInSide - 1) * dxy;
+                            const yStart = (side == 3) ?
+                                STADIUM_H / 2 - (STADIUM_H / 2 - 20) : STADIUM_H / 2 + (STADIUM_H / 2 - 20);
+                            const dy = (side == 3) ? 1 : -1;
+                            player.reset();
+                            player.addPoint(xStart, yStart);
+                            player.addPoint(xStart, yStart + dy);
+                        }
+                        //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                    }
+                    break;
+                }
+            case 4: // reverse around
+                {
+                    const dxy = 2 * Math.ceil(game.nbPlayersMax / 4);
+                    const remain = (game.nbPlayersMax % 4);
+                    for (const [id, player] of game.players) {
+                        const side = (player.no % 4); // left / right / top / bottom
+                        const nbPlayersInSide = (0 < side && side <= remain || game.nbPlayersMax <= 4) ?
+                            Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
+                        const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
+                        if (side == 1 || side == 2) // left / right
+                         {
+                            const xStart = (side == 1) ?
+                                STADIUM_W / 2 - dxy / 2 : STADIUM_W / 2 + dxy / 2;
+                            let yMin = (nbPlayersInSide % 2 == 0) ?
+                                STADIUM_H / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                                STADIUM_H / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                            const yStart = yMin + (noPlayerInSide - 1) * dxy;
+                            const dx = (side == 1) ? -1 : 1;
+                            player.reset();
+                            player.addPoint(xStart, yStart);
+                            player.addPoint(xStart + dx, yStart);
+                        }
+                        else // top /right
+                         {
+                            let xMin = (nbPlayersInSide % 2 == 0) ?
+                                STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
+                                STADIUM_W / 2 - Math.floor(nbPlayersInSide / 2) * dxy;
+                            const xStart = xMin + (noPlayerInSide - 1) * dxy;
+                            const yStart = (side == 3) ?
+                                STADIUM_H / 2 - dxy / 2 : STADIUM_H / 2 + dxy / 2;
+                            const dy = (side == 3) ? -1 : 1;
+                            player.reset();
+                            player.addPoint(xStart, yStart);
+                            player.addPoint(xStart, yStart + dy);
+                        }
+                        //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
+                    }
+                    break;
+                }
+        }
+    }
+    else // predefined stadiums
+     {
+        switch (game.stadiumId) {
+            case "1":
+                {
+                    const dy = 2;
+                    const dPosy = Math.round(STADIUM_H / 32);
+                    const remain = (game.nbPlayersMax % 4);
+                    for (const [id, player] of game.players) {
+                        const pos = (player.no % 4);
+                        const bottomTop = (player.no % 2); // 0: bottom, 1: top
+                        const leftRight = Math.floor((player.no % 4) / 2); // 0: left, 1: right
+                        const nbPlayersInPos = (0 < pos && pos <= remain || game.nbPlayersMax <= 4) ?
+                            Math.ceil(game.nbPlayersMax / 4) : Math.floor(game.nbPlayersMax / 4);
+                        const noPlayerInSide = Math.floor((player.no - 1) / 4) + 1;
+                        const xStart = STADIUM_W / 2;
+                        let yMin = (bottomTop == 1) ? dPosy : STADIUM_H - dPosy;
+                        yMin -= (nbPlayersInPos % 2 == 0) ?
+                            (Math.floor(nbPlayersInPos / 2) - 0.5) * dy :
+                            Math.floor(nbPlayersInPos / 2) * dy;
+                        const yStart = yMin + (noPlayerInSide - 1) * dy;
+                        //console.log('PLAYER ', player.no, noPlayerInSide, yMin, xStart, yStart);
+                        const dx = (leftRight == 1) ? 1 : -1;
                         player.reset();
                         player.addPoint(xStart, yStart);
-                        player.addPoint(xStart, yStart + dy);
+                        player.addPoint(xStart + dx, yStart);
                     }
-                    //console.log('PLAYER ', player.no, side, noPlayerInSide, nbPlayersInSide);
                 }
                 break;
-            }
+        }
     }
     // finalization
     for (const [id, player] of game.players) {
@@ -822,6 +856,12 @@ function initPlayersSpeeds(room) {
         speed = 3;
     else if (percent >= 50)
         speed = 2;
+    // labyrinth specific speeds
+    switch (game.stadiumId) {
+        case "1":
+            speed = (percent >= 50) ? 3 : 2;
+            break;
+    }
     for (const [id, player] of game.players)
         player.speed = speed;
 }
@@ -1033,8 +1073,8 @@ function newRound(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
-    game.round++;
-    console.log(`ROOM ${room} - ROUND ${game.round}`);
+    game.roundNo++;
+    console.log(`ROOM ${room} - ROUND ${game.roundNo}`);
     newStadium(room);
     initPlayersPositions(room);
     initPlayersSpeeds(room);
@@ -1046,32 +1086,82 @@ function newStadium(room) {
         return;
     const game = games.get(room);
     game.stadium = new Array();
-    const percentWallV = Math.floor(100 * Math.random());
-    const percentWallH = Math.floor(100 * Math.random());
-    const wallsV = (percentWallV >= 50);
-    const wallsH = (percentWallH >= 50);
-    ;
-    if (wallsV) {
-        let wallLeft1 = new Segment_S(0, 0, 0, STADIUM_H, "darkgrey");
-        let wallRight1 = new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey");
-        let wallLeft2 = new Segment_S(1, 0, 1, STADIUM_H, "grey");
-        let wallRight2 = new Segment_S(STADIUM_W - 1, 0, STADIUM_W - 1, 480, "grey");
-        game.stadium.push(wallLeft1);
-        game.stadium.push(wallRight1);
-        game.stadium.push(wallLeft2);
-        game.stadium.push(wallRight2);
-    }
-    if (wallsH) {
-        let wallTop1 = new Segment_S(0, 0, STADIUM_W, 0, "darkgrey");
-        let wallBottom1 = new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey");
-        let wallTop2 = new Segment_S(0, 1, STADIUM_W, 1, "grey");
-        let wallBottom2 = new Segment_S(0, STADIUM_H - 1, STADIUM_W, STADIUM_H - 1, "grey");
-        game.stadium.push(wallTop1);
-        game.stadium.push(wallBottom1);
-        game.stadium.push(wallTop2);
-        game.stadium.push(wallBottom2);
+    let newStadiumId = "0";
+    if (game.roundNo % 5 == 0)
+        newStadiumId = "1";
+    game.stadiumId = newStadiumId;
+    switch (newStadiumId) {
+        case "0": // vanilla
+            {
+                const percentWallV = Math.floor(100 * Math.random());
+                const percentWallH = Math.floor(100 * Math.random());
+                const wallsV = (percentWallV >= 50);
+                const wallsH = (percentWallH >= 50);
+                ;
+                if (wallsV) {
+                    game.stadium.push(new Segment_S(0, 0, 0, STADIUM_H, "darkgrey"));
+                    game.stadium.push(new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey"));
+                    game.stadium.push(new Segment_S(1, 0, 1, STADIUM_H, "grey"));
+                    game.stadium.push(new Segment_S(STADIUM_W - 1, 0, STADIUM_W - 1, 480, "grey"));
+                }
+                if (wallsH) {
+                    game.stadium.push(new Segment_S(0, 0, STADIUM_W, 0, "darkgrey"));
+                    game.stadium.push(new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey"));
+                    game.stadium.push(new Segment_S(0, 1, STADIUM_W, 1, "grey"));
+                    game.stadium.push(new Segment_S(0, STADIUM_H - 1, STADIUM_W, STADIUM_H - 1, "grey"));
+                }
+            }
+            break;
+        case "1": // labyrinth 1
+            {
+                putWallsAround(game);
+                const color = "LightGrey";
+                const dx = Math.round(STADIUM_W / 2 / 8);
+                const dy = Math.round(STADIUM_H / 2 / 8);
+                // build per layer
+                for (let i = 1; i <= 6; i++) {
+                    if (i % 2 == 1) // gaps on vertical walls
+                     {
+                        const hGap = (1.5 - 0.5 * Math.floor(i / 2)) * dy;
+                        game.stadium.push(new Segment_S(i * dx, i * dy, STADIUM_W - i * dx, i * dy, color));
+                        game.stadium.push(new Segment_S(i * dx, STADIUM_H - i * dy, STADIUM_W - i * dx, STADIUM_H - i * dy, color));
+                        game.stadium.push(new Segment_S(i * dx, STADIUM_H / 2 - hGap, i * dx, i * dy, color));
+                        game.stadium.push(new Segment_S(i * dx, STADIUM_H / 2 + hGap, i * dx, STADIUM_H - i * dy, color));
+                        game.stadium.push(new Segment_S(STADIUM_W - i * dx, STADIUM_H / 2 - hGap, STADIUM_W - i * dx, i * dy, color));
+                        game.stadium.push(new Segment_S(STADIUM_W - i * dx, STADIUM_H / 2 + hGap, STADIUM_W - i * dx, STADIUM_H - i * dy, color));
+                    }
+                    else // gaps on horizontal walls
+                     {
+                        const wGap = (1.5 - 0.5 * Math.floor((i - 1) / 2)) * dx;
+                        game.stadium.push(new Segment_S(i * dx, i * dy, i * dx, STADIUM_H - i * dy, color));
+                        game.stadium.push(new Segment_S(STADIUM_W - i * dx, i * dy, STADIUM_W - i * dx, STADIUM_H - i * dy, color));
+                        game.stadium.push(new Segment_S(i * dx, i * dy, STADIUM_W / 2 - wGap, i * dy, color));
+                        game.stadium.push(new Segment_S(STADIUM_W / 2 + wGap, i * dy, STADIUM_W - i * dx, i * dy, color));
+                        game.stadium.push(new Segment_S(i * dx, STADIUM_H - i * dy, STADIUM_W / 2 - wGap, STADIUM_H - i * dy, color));
+                        game.stadium.push(new Segment_S(STADIUM_W / 2 + wGap, STADIUM_H - i * dy, STADIUM_W - i * dx, STADIUM_H - i * dy, color));
+                    }
+                }
+                // last layer
+                game.stadium.push(new Segment_S(7 * dx, 7 * dy, STADIUM_W - 7 * dx, 7 * dy, color));
+                game.stadium.push(new Segment_S(7 * dx, STADIUM_H - 7 * dy, STADIUM_W - 7 * dx, STADIUM_H - 7 * dy, color));
+            }
+            break;
     }
     sendStadium(room);
+}
+function putWallsAround(game) {
+    // left
+    game.stadium.push(new Segment_S(0, 0, 0, STADIUM_H, "darkgrey"));
+    game.stadium.push(new Segment_S(1, 0, 1, STADIUM_H, "grey"));
+    // right
+    game.stadium.push(new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey"));
+    game.stadium.push(new Segment_S(STADIUM_W - 1, 0, STADIUM_W - 1, 480, "grey"));
+    // top
+    game.stadium.push(new Segment_S(0, 0, STADIUM_W, 0, "darkgrey"));
+    game.stadium.push(new Segment_S(0, 1, STADIUM_W, 1, "grey"));
+    // bottom
+    game.stadium.push(new Segment_S(0, STADIUM_H, STADIUM_W, STADIUM_H, "darkgrey"));
+    game.stadium.push(new Segment_S(0, STADIUM_H - 1, STADIUM_W, STADIUM_H - 1, "grey"));
 }
 function sendStadium(room) {
     if (!games.has(room))
