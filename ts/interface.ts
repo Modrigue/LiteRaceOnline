@@ -1,5 +1,8 @@
 window.onload = function()
 {
+    window.addEventListener("resize", onResize);
+    onResize();
+
     // start on welcome page
     setVisible("pageGameSetup", false);
 
@@ -123,6 +126,46 @@ function getSelectedRoomName(): string
     }
 
     return room;
+}
+
+
+//////////////////////////////////// DOM HELPERS //////////////////////////////
+
+
+// keep ratio at resize
+function onResize(): void
+{
+    const w: number = window.innerWidth;
+    const h: number = window.innerHeight;
+
+    const ratioStadium: number = STADIUM_W_CLIENT / STADIUM_H_CLIENT;
+    const ratioWindow: number = w / h;
+
+    if (w * STADIUM_H_CLIENT == h * STADIUM_W_CLIENT) // equal ratios
+    {
+        canvas.style.left = "0";
+        canvas.style.top = "0";
+        canvas.style.width = `${window.innerWidth.toString()}px`;
+        canvas.style.height = `${window.innerHeight.toString()}px`;
+    }
+    else if (ratioWindow > ratioStadium) // width too big
+    {
+        const wNew = Math.round(h * ratioStadium);
+        const leftNew = Math.round(w/2 - wNew/2);
+        canvas.style.left = `${leftNew}px`;
+        canvas.style.top = "0";
+        canvas.style.height = `${h}px`;
+        canvas.style.width = `${wNew}px`;
+    }
+    else if (ratioWindow < ratioStadium) // height too big
+    {
+        const hNew = Math.round(w / ratioStadium);
+        const topNew = Math.round(h/2 - hNew/2);
+        canvas.style.left = "0";
+        canvas.style.top = `${topNew}px`;
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${hNew}px`;
+    }
 }
 
 function setVisible(id: string, status: boolean): void
