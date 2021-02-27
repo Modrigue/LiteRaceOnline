@@ -90,7 +90,7 @@ socket.on('updatePlayersList', (params: Array<{id: string, name: string}>) => {
     updatePlayButton();
 });
 
-socket.on('updateRoomParams', (params: {room: string, nbPlayersMax: number, nbRounds: number, hasTeams: boolean}) => {
+socket.on('updateRoomParams', (params: {room: string, nbPlayersMax: number, nbRounds: number, hasTeams: boolean, mode: string}) => {
 
     // update nb. players max
 
@@ -177,14 +177,19 @@ socket.on('updateRoomParams', (params: {room: string, nbPlayersMax: number, nbRo
     }
 
     // update nb. rounds
-    const selectNbRounds = <HTMLInputElement>document.getElementById('gameNbRounds');
-    if (selectNbRounds.disabled)
-        selectNbRounds.value = params.nbRounds.toString();
+    const inputNbRounds = <HTMLInputElement>document.getElementById('gameNbRounds');
+    if (inputNbRounds.disabled)
+        inputNbRounds.value = params.nbRounds.toString();
 
     // update teams checkbox
     const checkboxHasTeams = <HTMLInputElement>document.getElementById('gameHasTeams');
     if (checkboxHasTeams.disabled)
         checkboxHasTeams.checked = params.hasTeams;
+
+    // update game mode
+    const selectMode = <HTMLSelectElement>document.getElementById('gameMode');
+    if (selectMode.disabled)
+        selectMode.value = params.mode;
 
     // update player own team selector and ready checkbox
     const divPlayerTeam = document.getElementById(`setup_player_team_${selfID}`);
@@ -290,6 +295,7 @@ socket.on('displaySetup', (response: {room: string, resetReady: boolean}) => {
 
     setEnabled("gameNbPlayers", creator);
     setEnabled("gameNbRounds", creator);
+    setEnabled("gameMode", creator);
     setEnabled("buttonPlay", false);
     (<HTMLButtonElement>document.getElementById('buttonPlay')).innerText = "START GAME";
 
@@ -306,7 +312,7 @@ socket.on('displaySetup', (response: {room: string, resetReady: boolean}) => {
 ////////////////////////////////////// GUI ////////////////////////////////////
 
 
-function onRoomParamChanged(): void
+function onRoomParamsChanged(): void
 {    
     // number input: limit nb. of characters to max length
     if (this.type == "number")
@@ -317,6 +323,8 @@ function onRoomParamChanged(): void
     const imputNbPlayers = <HTMLInputElement>document.getElementById('gameNbPlayers');
     const inputNbRounds = <HTMLInputElement>document.getElementById('gameNbRounds');
     const inputHasTeams = <HTMLInputElement>document.getElementById('gameHasTeams');
+    const selectMode = <HTMLSelectElement>document.getElementById('gameMode');
+
     if (!imputNbPlayers.disabled && !inputNbRounds.disabled)
     {
         const nbPlayersMax = <number>parseInt(imputNbPlayers.value);
@@ -325,8 +333,9 @@ function onRoomParamChanged(): void
             return; // nop
 
         const hasTeams = inputHasTeams.checked;
+        const mode: string = selectMode.value;
 
-        socket.emit('setRoomParams', {nbPlayersMax: nbPlayersMax, nbRounds: nbRounds, hasTeams: hasTeams}, (response: any) => {});
+        socket.emit('setRoomParams', {nbPlayersMax: nbPlayersMax, nbRounds: nbRounds, hasTeams: hasTeams, mode: mode}, (response: any) => {});
     }
 }
 

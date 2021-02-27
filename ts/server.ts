@@ -604,7 +604,7 @@ function connected(socket: any)
     });
 
     // max. nb. of players update
-    socket.on('setRoomParams', (params: { nbPlayersMax: number, nbRounds: number, hasTeams: boolean }, response: any) => {
+    socket.on('setRoomParams', (params: { nbPlayersMax: number, nbRounds: number, hasTeams: boolean, mode: string }, response: any) => {
         const room = getPlayerRoomFromId(socket.id);
         if (room.length == 0)
             return;
@@ -618,6 +618,7 @@ function connected(socket: any)
                 game.nbPlayersMax = params.nbPlayersMax;
                 game.nbRounds = params.nbRounds;
                 game.hasTeams = params.hasTeams;
+                game.mode = (params.mode == "survivor") ? GameMode.SURVIVOR : GameMode.BODYCOUNT;
                 updateRoomParams(room);
             }
         }
@@ -810,8 +811,10 @@ function updateRoomParams(room: string) {
         return
     const game = <Game>games.get(room);
 
+    const modeStr = (game.mode == GameMode.SURVIVOR) ? "survivor" : "bodycount";
+
     io.to(room).emit('updateRoomParams',
-        { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds, hasTeams: game.hasTeams });
+        { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds, hasTeams: game.hasTeams, mode: modeStr });
 }
 
 function updatePlayersParams(room: string) {
@@ -1055,7 +1058,7 @@ function initPlayersPositions(room: string): void
 
         // for fast test only
         if (FAST_TEST_ON) {
-            const playersColors = ["#ffff00", "#0000ff", "#ff0000", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
+            const playersColors = ["#ffff00", "#4444ff", "#ff4444", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
             player.color = playersColors[(player.no - 1) % playersColors.length];
             player.name = `Player ${player.no}`;
 

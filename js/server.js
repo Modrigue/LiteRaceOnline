@@ -461,6 +461,7 @@ function connected(socket) {
                 game.nbPlayersMax = params.nbPlayersMax;
                 game.nbRounds = params.nbRounds;
                 game.hasTeams = params.hasTeams;
+                game.mode = (params.mode == "survivor") ? GameMode.SURVIVOR : GameMode.BODYCOUNT;
                 updateRoomParams(room);
             }
         }
@@ -607,7 +608,8 @@ function updateRoomParams(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
-    io.to(room).emit('updateRoomParams', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds, hasTeams: game.hasTeams });
+    const modeStr = (game.mode == GameMode.SURVIVOR) ? "survivor" : "bodycount";
+    io.to(room).emit('updateRoomParams', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds, hasTeams: game.hasTeams, mode: modeStr });
 }
 function updatePlayersParams(room) {
     if (!games.has(room))
@@ -802,7 +804,7 @@ function initPlayersPositions(room) {
         player.up = player.down = player.left = player.right = player.action = false;
         // for fast test only
         if (FAST_TEST_ON) {
-            const playersColors = ["#ffff00", "#0000ff", "#ff0000", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
+            const playersColors = ["#ffff00", "#4444ff", "#ff4444", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
             player.color = playersColors[(player.no - 1) % playersColors.length];
             player.name = `Player ${player.no}`;
             if (FAST_TEST_HAS_TEAMS)

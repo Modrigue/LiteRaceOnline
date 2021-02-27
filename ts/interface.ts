@@ -29,11 +29,13 @@ window.onload = function()
     // game setup page
 
     const inputNbPlayers = <HTMLInputElement>document.getElementById('gameNbPlayers');
-    inputNbPlayers.addEventListener('input', onRoomParamChanged);
+    inputNbPlayers.addEventListener('input', onRoomParamsChanged);
     const inputNbRounds = <HTMLInputElement>document.getElementById('gameNbRounds');
-    inputNbRounds.addEventListener('input', onRoomParamChanged);
+    inputNbRounds.addEventListener('input', onRoomParamsChanged);
     const inputHasTeams = <HTMLInputElement>document.getElementById('gameHasTeams');
-    inputHasTeams.addEventListener('input', onRoomParamChanged);
+    inputHasTeams.addEventListener('input', onRoomParamsChanged);
+    const selectMode = <HTMLSelectElement>document.getElementById('gameMode');
+    selectMode.addEventListener('change', onRoomParamsChanged);
 
     // game page
     const buttonPlay = <HTMLButtonElement>document.getElementById('buttonPlay');

@@ -140,13 +140,17 @@ socket.on('updateRoomParams', (params) => {
         }
     }
     // update nb. rounds
-    const selectNbRounds = document.getElementById('gameNbRounds');
-    if (selectNbRounds.disabled)
-        selectNbRounds.value = params.nbRounds.toString();
+    const inputNbRounds = document.getElementById('gameNbRounds');
+    if (inputNbRounds.disabled)
+        inputNbRounds.value = params.nbRounds.toString();
     // update teams checkbox
     const checkboxHasTeams = document.getElementById('gameHasTeams');
     if (checkboxHasTeams.disabled)
         checkboxHasTeams.checked = params.hasTeams;
+    // update game mode
+    const selectMode = document.getElementById('gameMode');
+    if (selectMode.disabled)
+        selectMode.value = params.mode;
     // update player own team selector and ready checkbox
     const divPlayerTeam = document.getElementById(`setup_player_team_${selfID}`);
     if (divPlayerTeam && divPlayerTeam !== undefined) {
@@ -227,6 +231,7 @@ socket.on('displaySetup', (response) => {
     setVisible("pageGame", false);
     setEnabled("gameNbPlayers", creator);
     setEnabled("gameNbRounds", creator);
+    setEnabled("gameMode", creator);
     setEnabled("buttonPlay", false);
     document.getElementById('buttonPlay').innerText = "START GAME";
     // reset ready checkboxes if option set
@@ -237,7 +242,7 @@ socket.on('displaySetup', (response) => {
     }
 });
 ////////////////////////////////////// GUI ////////////////////////////////////
-function onRoomParamChanged() {
+function onRoomParamsChanged() {
     // number input: limit nb. of characters to max length
     if (this.type == "number")
         if (this.value.length > this.maxLength)
@@ -246,13 +251,15 @@ function onRoomParamChanged() {
     const imputNbPlayers = document.getElementById('gameNbPlayers');
     const inputNbRounds = document.getElementById('gameNbRounds');
     const inputHasTeams = document.getElementById('gameHasTeams');
+    const selectMode = document.getElementById('gameMode');
     if (!imputNbPlayers.disabled && !inputNbRounds.disabled) {
         const nbPlayersMax = parseInt(imputNbPlayers.value);
         const nbRounds = parseInt(inputNbRounds.value);
         if (nbPlayersMax == 0 || nbRounds == 0)
             return; // nop
         const hasTeams = inputHasTeams.checked;
-        socket.emit('setRoomParams', { nbPlayersMax: nbPlayersMax, nbRounds: nbRounds, hasTeams: hasTeams }, (response) => { });
+        const mode = selectMode.value;
+        socket.emit('setRoomParams', { nbPlayersMax: nbPlayersMax, nbRounds: nbRounds, hasTeams: hasTeams, mode: mode }, (response) => { });
     }
 }
 function updatePlayButton() {

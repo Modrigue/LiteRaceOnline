@@ -22,11 +22,13 @@ window.onload = function () {
     buttonSubmit.addEventListener('click', onSubmit);
     // game setup page
     const inputNbPlayers = document.getElementById('gameNbPlayers');
-    inputNbPlayers.addEventListener('input', onRoomParamChanged);
+    inputNbPlayers.addEventListener('input', onRoomParamsChanged);
     const inputNbRounds = document.getElementById('gameNbRounds');
-    inputNbRounds.addEventListener('input', onRoomParamChanged);
+    inputNbRounds.addEventListener('input', onRoomParamsChanged);
     const inputHasTeams = document.getElementById('gameHasTeams');
-    inputHasTeams.addEventListener('input', onRoomParamChanged);
+    inputHasTeams.addEventListener('input', onRoomParamsChanged);
+    const selectMode = document.getElementById('gameMode');
+    selectMode.addEventListener('change', onRoomParamsChanged);
     // game page
     const buttonPlay = document.getElementById('buttonPlay');
     buttonPlay.addEventListener('click', onPlay);
