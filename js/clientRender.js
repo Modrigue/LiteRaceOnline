@@ -19,6 +19,7 @@ function renderLoop() {
             drawStadiumBounds();
             PLAYERS.forEach((player) => { player.draw(ctx); });
             STADIUM.forEach((wall) => { wall.draw(ctx); });
+            OBSTACLES.forEach((obstacle) => { obstacle.draw(ctx); });
             //// display players' infos
             //userInterface();
             break;

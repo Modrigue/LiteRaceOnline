@@ -32,6 +32,7 @@ canvas.width = STADIUM_W_CLIENT;
 canvas.height = STADIUM_H_CLIENT;
 let PLAYERS = new Map();
 let STADIUM = new Array();
+let OBSTACLES = new Array();
 let displayStatus = DisplayStatus.NONE;
 let nbRounds = 0;
 let winners = new Array();
@@ -61,6 +62,13 @@ socket.on('stadium', (params) => {
         STADIUM.push(newWall);
     }
     displayStatus = DisplayStatus.PLAYING;
+});
+socket.on('obstacles', (params) => {
+    OBSTACLES = new Array();
+    for (const data of params) {
+        const newObstacle = new Box(data.x1, data.y1, data.x2, data.y2, data.color);
+        OBSTACLES.push(newObstacle);
+    }
 });
 socket.on('displayScores', (params) => {
     //console.log("displayScores", params);

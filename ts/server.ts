@@ -51,6 +51,26 @@ class Segment_S
     }
 }
 
+class Box_S
+{
+    private _points : Array<Point2_S>;
+    public get points() : Array<Point2_S> { return this._points; }
+    public set points(value : Array<Point2_S>) { this._points = value; }
+
+    public color: string;
+    public image: (HTMLImageElement | null);
+    
+    constructor(x1: number, y1: number, x2: number, y2: number, color: string)
+    {
+        this._points = new Array<Point2_S>(2);
+        this._points[0] = new Point2_S(Math.round(x1), Math.round(y1));
+        this._points[1] = new Point2_S(Math.round(x2), Math.round(y2));
+
+        this.color = color;
+        this.image = null;
+    }
+}
+
 class LiteRay_S
 {
     private _points: Array<Point2_S> = new Array<Point2_S>();
@@ -262,6 +282,33 @@ function collideSegment(ray: LiteRay_S, x1: number, y1: number, x2: number, y2: 
     return false;
 }
 
+function collideBox(ray: LiteRay_S, box: Box_S): boolean
+{
+    const pointLast: Point2_S = ray.getLastPoint();
+    const xr = pointLast.x;
+    const yr = pointLast.y;
+
+    if (xr == -Infinity || yr == -Infinity)
+        return false;
+
+    for (let i = ray.speed - 1; i >= 0; i--)
+    {
+        const xrCur = xr - i * ray.direction().dirx;
+        const yrCur = yr - i * ray.direction().diry;
+
+        const collisionCur = pointInBox(xrCur, yrCur, box);
+        if (collisionCur)
+        {
+            // store last collision point
+            ray.pointLastCollision.x = xrCur - ray.direction().dirx;
+            ray.pointLastCollision.y = yrCur - ray.direction().diry;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // returns true if point (x, y) is on segment
 // TODO: use Bresenham's algorithm or SAT?
 function pointOnSegment(x: number, y: number, x1: number, y1: number, x2: number, y2: number): boolean
@@ -288,6 +335,17 @@ function pointOnSegment(x: number, y: number, x1: number, y1: number, x2: number
     const dist = Math.abs((y - y1) * (x2 - x1) - (x - x1) * (y2 - y1));
 
     return (dist <= STADIUM_H);
+}
+
+// returns true if point (x, y) is in box
+function pointInBox(x: number, y: number, box: Box_S): boolean
+{
+    const xMin = Math.min(box.points[0].x, box.points[1].x);
+    const xMax = Math.max(box.points[0].x, box.points[1].x);
+    const yMin = Math.min(box.points[0].y, box.points[1].y);
+    const yMax = Math.max(box.points[0].y, box.points[1].y);
+
+    return (xMin <= x && x <= xMax && yMin <= y && y <= yMax);
 }
 
 function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
@@ -490,8 +548,14 @@ class Game
     stadium: Array<Segment_S> = new Array<Segment_S>();
     stadiumId: string = "0";
 
+    obstacles: Array<Box_S> = new Array<Box_S>();
+
+    compressedBlocksInit: boolean = false;
+    compressedBlocksDateTime: number = 0;
+
     nbRounds: number = 10;
     roundNo: number = 0;
+    roundStartDateTime: number = 0;
     resetOnKilled: boolean = false;
 
     password: string = "";
@@ -880,13 +944,13 @@ function playNewGame(room: string) {
 
     const game = <Game>games.get(room);
     game.roundNo = 0;
-    newRound(room);
     game.displayStatus = DisplayStatus_S.PREPARE;
 
     io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
 
     // create players
     setTimeout(() => {
+        newRound(room);
         let playerParams = Array<{ id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string }>();
         for (const [id, player] of game.players)
         {
@@ -1245,7 +1309,7 @@ function initPlayersSpeeds(room: string): void
     else if (percent >= 50)
         speed = 2;
 
-    // labyrinths specific speeds
+    // mazes specific speeds
     switch(game.stadiumId)
     {
         case "1":
@@ -1283,11 +1347,21 @@ function serverLoop()
 
 function gameLogic(room: string): void
 {
-    // display scores if round finished
     if (!games.has(room))
         return;
     const game = <Game>games.get(room);
 
+    // create compressing blocks if delay passed
+    if ((game.roundNo + 2) % 5 == 0)
+    {
+        const delayCompression = 3; // s
+        const curDate = Date.now();
+        const roundElapsedTime = curDate - game.roundStartDateTime; // ms
+        if (roundElapsedTime > delayCompression * 1000)
+            applyCompressingBlocks(room);
+    }
+
+    // display scores if round finished
     if (roundFinished(room))
         scoring(room);
 }
@@ -1389,7 +1463,8 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
 
     for (const [id, otherPlayer] of game.players)
     {
-        if (collideRay(player, <LiteRay_S>otherPlayer)) {
+        if (collideRay(player, <LiteRay_S>otherPlayer))
+        {
             player.markForDead = true;
             player.killedBy = id;
             //console.log(`PLAYER ${player.no} COLLISION RAY`);
@@ -1399,10 +1474,22 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     for (const wall of game.stadium)
     {
         if (!player.markForDead)
-            if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
+            if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
+            {
                 player.markForDead = true;
                 player.killedBy = "WALL";
                 //console.log(`PLAYER ${player.no} COLLISION WALL`);
+            }
+    }
+
+    for (const obstacle of game.obstacles)
+    {
+        if (!player.markForDead)
+            if (collideBox(player, obstacle))
+            {
+                player.markForDead = true;
+                player.killedBy = "WALL";
+                //console.log(`PLAYER ${player.no} COLLISION OBSTACLE`);
             }
     }
 }
@@ -1546,13 +1633,14 @@ function newRound(room: string): void
 
     const game = <Game>games.get(room);
     game.roundNo++;
+    game.roundStartDateTime = Date.now();  
     console.log(`ROOM ${room} - ROUND ${game.roundNo}`);
 
     newStadium(room);
     initPlayersPositions(room);
     initPlayersSpeeds(room);
     game.resetOnKilled = (Math.floor(100 * Math.random()) >= 50);
-    game.displayStatus = DisplayStatus_S.PLAYING;
+    game.displayStatus = DisplayStatus_S.PLAYING;  
 }
 
 function newStadium(room: string): void
@@ -1562,6 +1650,8 @@ function newStadium(room: string): void
 
     const game = <Game>games.get(room);
     game.stadium = new Array<Segment_S>();
+    game.obstacles = new Array<Box_S>();
+    game.compressedBlocksInit = false;
 
     let newStadiumId = "0";
     if (game.roundNo % 10 == 0)
@@ -1597,7 +1687,7 @@ function newStadium(room: string): void
             }
             break;
 
-        case "1":   // labyrinth 1
+        case "1":   // maze 1
             {   
                 putWallsAround(game);
                 const color = "LightGrey";
@@ -1638,7 +1728,7 @@ function newStadium(room: string): void
             }
             break;
         
-        case "2":   // labyrinth 2
+        case "2":   // maze 2
             {   
                 putWallsAround(game);
                 const color = "LightGrey";
@@ -1720,6 +1810,7 @@ function newStadium(room: string): void
     }
 
     sendStadium(room);
+    sendObstacles(room);
 }
 
 function putWallsAround(game: Game): void
@@ -1747,11 +1838,78 @@ function sendStadium(room: string): void
         return;
 
     const game = <Game>games.get(room);
-    let stadiumParams = new Array<{ x1: number, y1: number, x2: number, y2: number, color: string }>();
+    let params = new Array<{ x1: number, y1: number, x2: number, y2: number, color: string }>();
     for (const wall of game.stadium)
-        stadiumParams.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y, color: wall.color });
+        params.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y, color: wall.color });
 
-    io.to(room).emit('stadium', stadiumParams);
+    io.to(room).emit('stadium', params);
+}
+
+function newObstacles(room: string): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game>games.get(room);
+
+    let obstacles = new Array<Box_S>();
+    // create obstacles
+    game.obstacles = obstacles;
+
+    sendObstacles(room);
+}
+
+function applyCompressingBlocks(room: string): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game>games.get(room);
+
+    
+    if (!game.compressedBlocksInit)
+    {
+        // create blocks
+        let obstacles = new Array<Box_S>();
+
+        // top, bottom, left, right
+        const color: string = "lightgrey";
+        obstacles.push(new Box_S(0, 0, STADIUM_W, 0, color));
+        obstacles.push(new Box_S(0, STADIUM_H, STADIUM_W, STADIUM_H, color));
+        obstacles.push(new Box_S(0, 0, 0, STADIUM_H, color));
+        obstacles.push(new Box_S(STADIUM_W, 0, STADIUM_W, STADIUM_H, color));
+        game.obstacles = obstacles;
+
+        game.compressedBlocksInit = true;
+        game.compressedBlocksDateTime = Date.now();
+    }
+    else
+    {
+        // update blocks
+        const speedRef = 2;
+        const speed = Math.round(speedRef * Math.min(STADIUM_H, STADIUM_H) / 100); // pixels / s
+        const elapsedTime = Date.now() - game.compressedBlocksDateTime;
+        if (game.obstacles.length >= 4)
+        {
+            game.obstacles[0].points[1].y = Math.floor(speed * elapsedTime / 1000);
+            game.obstacles[1].points[1].y = STADIUM_H - Math.floor(speed * elapsedTime / 1000);
+            game.obstacles[2].points[1].x = Math.floor(speed * elapsedTime / 1000);
+            game.obstacles[3].points[1].x = STADIUM_W - Math.floor(speed * elapsedTime / 1000);
+        }
+    }
+
+    sendObstacles(room);
+}
+
+function sendObstacles(room: string): void
+{
+    if (!games.has(room) && true)
+        return;
+
+    const game = <Game>games.get(room);
+    let params = new Array<{ x1: number, y1: number, x2: number, y2: number, color: string }>();
+    for (const obs of game.obstacles)
+        params.push({ x1: obs.points[0].x, y1: obs.points[0].y, x2: obs.points[1].x, y2: obs.points[1].y, color: obs.color });
+
+    io.to(room).emit('obstacles', params);
 }
 
 function gameOver(room: string, winners: Array<string>): void

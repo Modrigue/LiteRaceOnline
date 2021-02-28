@@ -35,6 +35,17 @@ class Segment_S {
     get points() { return this._points; }
     set points(value) { this._points = value; }
 }
+class Box_S {
+    constructor(x1, y1, x2, y2, color) {
+        this._points = new Array(2);
+        this._points[0] = new Point2_S(Math.round(x1), Math.round(y1));
+        this._points[1] = new Point2_S(Math.round(x2), Math.round(y2));
+        this.color = color;
+        this.image = null;
+    }
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
+}
 class LiteRay_S {
     constructor() {
         this._points = new Array();
@@ -186,6 +197,25 @@ function collideSegment(ray, x1, y1, x2, y2) {
     }
     return false;
 }
+function collideBox(ray, box) {
+    const pointLast = ray.getLastPoint();
+    const xr = pointLast.x;
+    const yr = pointLast.y;
+    if (xr == -Infinity || yr == -Infinity)
+        return false;
+    for (let i = ray.speed - 1; i >= 0; i--) {
+        const xrCur = xr - i * ray.direction().dirx;
+        const yrCur = yr - i * ray.direction().diry;
+        const collisionCur = pointInBox(xrCur, yrCur, box);
+        if (collisionCur) {
+            // store last collision point
+            ray.pointLastCollision.x = xrCur - ray.direction().dirx;
+            ray.pointLastCollision.y = yrCur - ray.direction().diry;
+            return true;
+        }
+    }
+    return false;
+}
 // returns true if point (x, y) is on segment
 // TODO: use Bresenham's algorithm or SAT?
 function pointOnSegment(x, y, x1, y1, x2, y2) {
@@ -207,6 +237,14 @@ function pointOnSegment(x, y, x1, y1, x2, y2) {
     // <=> | (yr - y1)*(x2 - x1) - (xr - x1)*(y2 - y1) | < threshold to handle pixels
     const dist = Math.abs((y - y1) * (x2 - x1) - (x - x1) * (y2 - y1));
     return (dist <= STADIUM_H);
+}
+// returns true if point (x, y) is in box
+function pointInBox(x, y, box) {
+    const xMin = Math.min(box.points[0].x, box.points[1].x);
+    const xMax = Math.max(box.points[0].x, box.points[1].x);
+    const yMin = Math.min(box.points[0].y, box.points[1].y);
+    const yMax = Math.max(box.points[0].y, box.points[1].y);
+    return (xMin <= x && x <= xMax && yMin <= y && y <= yMax);
 }
 function collideRay(ray1, ray2) {
     const pointLast = ray1.getLastPoint();
@@ -366,8 +404,12 @@ class Game {
         this.mode = GameMode.BODYCOUNT;
         this.stadium = new Array();
         this.stadiumId = "0";
+        this.obstacles = new Array();
+        this.compressedBlocksInit = false;
+        this.compressedBlocksDateTime = 0;
         this.nbRounds = 10;
         this.roundNo = 0;
+        this.roundStartDateTime = 0;
         this.resetOnKilled = false;
         this.password = "";
         this.status = GameStatus.NONE;
@@ -659,11 +701,11 @@ function playNewGame(room) {
         return;
     const game = games.get(room);
     game.roundNo = 0;
-    newRound(room);
     game.displayStatus = DisplayStatus_S.PREPARE;
     io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
     // create players
     setTimeout(() => {
+        newRound(room);
         let playerParams = Array();
         for (const [id, player] of game.players) {
             player.score = player.nbPointsInRound = 0;
@@ -959,7 +1001,7 @@ function initPlayersSpeeds(room) {
         speed = 3;
     else if (percent >= 50)
         speed = 2;
-    // labyrinths specific speeds
+    // mazes specific speeds
     switch (game.stadiumId) {
         case "1":
             speed = (percent >= 50) ? 3 : 2;
@@ -986,10 +1028,18 @@ function serverLoop() {
     }
 }
 function gameLogic(room) {
-    // display scores if round finished
     if (!games.has(room))
         return;
     const game = games.get(room);
+    // create compressing blocks if delay passed
+    if ((game.roundNo + 2) % 5 == 0) {
+        const delayCompression = 3; // s
+        const curDate = Date.now();
+        const roundElapsedTime = curDate - game.roundStartDateTime; // ms
+        if (roundElapsedTime > delayCompression * 1000)
+            applyCompressingBlocks(room);
+    }
+    // display scores if round finished
     if (roundFinished(room))
         scoring(room);
 }
@@ -1079,6 +1129,14 @@ function checkPlayerCollisions(player, room = "") {
                 player.markForDead = true;
                 player.killedBy = "WALL";
                 //console.log(`PLAYER ${player.no} COLLISION WALL`);
+            }
+    }
+    for (const obstacle of game.obstacles) {
+        if (!player.markForDead)
+            if (collideBox(player, obstacle)) {
+                player.markForDead = true;
+                player.killedBy = "WALL";
+                //console.log(`PLAYER ${player.no} COLLISION OBSTACLE`);
             }
     }
 }
@@ -1187,6 +1245,7 @@ function newRound(room) {
         return;
     const game = games.get(room);
     game.roundNo++;
+    game.roundStartDateTime = Date.now();
     console.log(`ROOM ${room} - ROUND ${game.roundNo}`);
     newStadium(room);
     initPlayersPositions(room);
@@ -1199,6 +1258,8 @@ function newStadium(room) {
         return;
     const game = games.get(room);
     game.stadium = new Array();
+    game.obstacles = new Array();
+    game.compressedBlocksInit = false;
     let newStadiumId = "0";
     if (game.roundNo % 10 == 0)
         newStadiumId = "2";
@@ -1227,7 +1288,7 @@ function newStadium(room) {
                 }
             }
             break;
-        case "1": // labyrinth 1
+        case "1": // maze 1
             {
                 putWallsAround(game);
                 const color = "LightGrey";
@@ -1261,7 +1322,7 @@ function newStadium(room) {
                 game.stadium.push(new Segment_S(7 * dx, STADIUM_H - 7 * dy, STADIUM_W - 7 * dx, STADIUM_H - 7 * dy, color));
             }
             break;
-        case "2": // labyrinth 2
+        case "2": // maze 2
             {
                 putWallsAround(game);
                 const color = "LightGrey";
@@ -1326,6 +1387,7 @@ function newStadium(room) {
             break;
     }
     sendStadium(room);
+    sendObstacles(room);
 }
 function putWallsAround(game) {
     // left
@@ -1345,10 +1407,59 @@ function sendStadium(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
-    let stadiumParams = new Array();
+    let params = new Array();
     for (const wall of game.stadium)
-        stadiumParams.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y, color: wall.color });
-    io.to(room).emit('stadium', stadiumParams);
+        params.push({ x1: wall.points[0].x, y1: wall.points[0].y, x2: wall.points[1].x, y2: wall.points[1].y, color: wall.color });
+    io.to(room).emit('stadium', params);
+}
+function newObstacles(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    let obstacles = new Array();
+    // create obstacles
+    game.obstacles = obstacles;
+    sendObstacles(room);
+}
+function applyCompressingBlocks(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    if (!game.compressedBlocksInit) {
+        // create blocks
+        let obstacles = new Array();
+        // top, bottom, left, right
+        const color = "lightgrey";
+        obstacles.push(new Box_S(0, 0, STADIUM_W, 0, color));
+        obstacles.push(new Box_S(0, STADIUM_H, STADIUM_W, STADIUM_H, color));
+        obstacles.push(new Box_S(0, 0, 0, STADIUM_H, color));
+        obstacles.push(new Box_S(STADIUM_W, 0, STADIUM_W, STADIUM_H, color));
+        game.obstacles = obstacles;
+        game.compressedBlocksInit = true;
+        game.compressedBlocksDateTime = Date.now();
+    }
+    else {
+        // update blocks
+        const speedRef = 2;
+        const speed = Math.round(speedRef * Math.min(STADIUM_H, STADIUM_H) / 100); // pixels / s
+        const elapsedTime = Date.now() - game.compressedBlocksDateTime;
+        if (game.obstacles.length >= 4) {
+            game.obstacles[0].points[1].y = Math.floor(speed * elapsedTime / 1000);
+            game.obstacles[1].points[1].y = STADIUM_H - Math.floor(speed * elapsedTime / 1000);
+            game.obstacles[2].points[1].x = Math.floor(speed * elapsedTime / 1000);
+            game.obstacles[3].points[1].x = STADIUM_W - Math.floor(speed * elapsedTime / 1000);
+        }
+    }
+    sendObstacles(room);
+}
+function sendObstacles(room) {
+    if (!games.has(room) && true)
+        return;
+    const game = games.get(room);
+    let params = new Array();
+    for (const obs of game.obstacles)
+        params.push({ x1: obs.points[0].x, y1: obs.points[0].y, x2: obs.points[1].x, y2: obs.points[1].y, color: obs.color });
+    io.to(room).emit('obstacles', params);
 }
 function gameOver(room, winners) {
     if (!games.has(room))
