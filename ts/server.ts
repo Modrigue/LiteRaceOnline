@@ -13,7 +13,7 @@ enum GameMode { BODYCOUNT, SURVIVOR }
 // for tests purposes only
 const FAST_TEST_ON = false;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
-const FAST_TEST_NB_PLAYERS = 4;
+const FAST_TEST_NB_PLAYERS = 2;
 const FAST_TEST_NB_ROUNDS = 15;
 const FAST_TEST_HAS_TEAMS = false;
 
@@ -118,6 +118,29 @@ class LiteRay_S
 
     extendsToNextPoint(): void
     {
+        // disabled: diagonals too easy -> future bonus?
+        // apply direction change if key control
+        // if (this.up || this.down || this.left || this.right)
+        // {
+        //     const { dirx, diry }: { dirx: number, diry: number } = this.direction();
+
+        //     // get last segment
+        //     const nbPoints = this._points.length;
+        //     const pointLast = this._points[nbPoints - 1];
+    
+        //     if (this.up && diry == 0)
+        //         this.addPoint(pointLast.x, pointLast.y - this.speed);
+        //     else if (this.down && diry == 0)
+        //         this.addPoint(pointLast.x, pointLast.y + this.speed);
+        //     else if (this.left && dirx == 0)
+        //         this.addPoint(pointLast.x - this.speed, pointLast.y);
+        //     else if (this.right && dirx == 0)
+        //         this.addPoint(pointLast.x + this.speed, pointLast.y);
+
+        //     this.up = this.down = this.left = this.right = false;
+        //     return;
+        // }
+
         if (!this._points || this._points.length == 0)
             return;
 
@@ -209,24 +232,6 @@ class LiteRay_S
         const dirx: number = Math.sign(dx);
         const diry: number = Math.sign(dy);
         return { dirx: dirx, diry: diry };
-    }
-
-    keyControl()
-    {
-        const { dirx, diry }: { dirx: number, diry: number } = this.direction();
-
-        // get last segment
-        const nbPoints = this._points.length;
-        const pointLast = this._points[nbPoints - 1];
-
-        if (this.up && diry == 0)
-            this.addPoint(pointLast.x, pointLast.y - this.speed);
-        else if (this.down && diry == 0)
-            this.addPoint(pointLast.x, pointLast.y + this.speed);
-        else if (this.left && dirx == 0)
-            this.addPoint(pointLast.x - this.speed, pointLast.y);
-        else if (this.right && dirx == 0)
-            this.addPoint(pointLast.x + this.speed, pointLast.y);
     }
 }
 
@@ -431,6 +436,31 @@ class Player_S extends LiteRay_S
     markForDead: boolean = false;
     killedBy: string = "";
     nbPointsInRound: number = 0;
+
+    keyControl()
+    {
+        const { dirx, diry }: { dirx: number, diry: number } = this.direction();
+
+        // get last segment
+        const nbPoints = this.points.length;
+        const pointLast = this.points[nbPoints - 1];
+        let hasChangedDirection = true;
+
+        if (this.up && diry == 0)
+            this.addPoint(pointLast.x, pointLast.y - this.speed);
+        else if (this.down && diry == 0)
+            this.addPoint(pointLast.x, pointLast.y + this.speed);
+        else if (this.left && dirx == 0)
+            this.addPoint(pointLast.x - this.speed, pointLast.y);
+        else if (this.right && dirx == 0)
+            this.addPoint(pointLast.x + this.speed, pointLast.y);
+        else
+            hasChangedDirection = false;
+
+        // check collision at direction changed
+        if (hasChangedDirection)
+            checkPlayerCollisions(this);
+    }
 }
 
 enum GameStatus
@@ -1309,7 +1339,7 @@ function physicsLoop(room: string): void
     game.players.forEach((player) => {
 
         if (player.alive)
-            checkPlayerCollisions(player, game);
+            checkPlayerCollisions(player, room);
     });
 
     // check for double collisions
@@ -1349,8 +1379,14 @@ function physicsLoop(room: string): void
         });
 }
 
-function checkPlayerCollisions(player: Player_S, game: Game)
+function checkPlayerCollisions(player: Player_S, room: string = ""): void
 {
+    if (room == "")
+        room = player.room;
+    if (!games.has(player.room))
+        return;
+    const game = <Game>games.get(player.room);
+
     for (const [id, otherPlayer] of game.players)
     {
         if (collideRay(player, <LiteRay_S>otherPlayer)) {

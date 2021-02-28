@@ -14,7 +14,7 @@ var GameMode;
 // for tests purposes only
 const FAST_TEST_ON = false;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
-const FAST_TEST_NB_PLAYERS = 4;
+const FAST_TEST_NB_PLAYERS = 2;
 const FAST_TEST_NB_ROUNDS = 15;
 const FAST_TEST_HAS_TEAMS = false;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
@@ -76,6 +76,25 @@ class LiteRay_S {
         return new Point2_S(x, y);
     }
     extendsToNextPoint() {
+        // disabled: diagonals too easy -> future bonus?
+        // apply direction change if key control
+        // if (this.up || this.down || this.left || this.right)
+        // {
+        //     const { dirx, diry }: { dirx: number, diry: number } = this.direction();
+        //     // get last segment
+        //     const nbPoints = this._points.length;
+        //     const pointLast = this._points[nbPoints - 1];
+        //     if (this.up && diry == 0)
+        //         this.addPoint(pointLast.x, pointLast.y - this.speed);
+        //     else if (this.down && diry == 0)
+        //         this.addPoint(pointLast.x, pointLast.y + this.speed);
+        //     else if (this.left && dirx == 0)
+        //         this.addPoint(pointLast.x - this.speed, pointLast.y);
+        //     else if (this.right && dirx == 0)
+        //         this.addPoint(pointLast.x + this.speed, pointLast.y);
+        //     this.up = this.down = this.left = this.right = false;
+        //     return;
+        // }
         if (!this._points || this._points.length == 0)
             return;
         // check if last point is in stadium
@@ -146,20 +165,6 @@ class LiteRay_S {
         const dirx = Math.sign(dx);
         const diry = Math.sign(dy);
         return { dirx: dirx, diry: diry };
-    }
-    keyControl() {
-        const { dirx, diry } = this.direction();
-        // get last segment
-        const nbPoints = this._points.length;
-        const pointLast = this._points[nbPoints - 1];
-        if (this.up && diry == 0)
-            this.addPoint(pointLast.x, pointLast.y - this.speed);
-        else if (this.down && diry == 0)
-            this.addPoint(pointLast.x, pointLast.y + this.speed);
-        else if (this.left && dirx == 0)
-            this.addPoint(pointLast.x - this.speed, pointLast.y);
-        else if (this.right && dirx == 0)
-            this.addPoint(pointLast.x + this.speed, pointLast.y);
     }
 }
 function collideSegment(ray, x1, y1, x2, y2) {
@@ -316,6 +321,26 @@ class Player_S extends LiteRay_S {
         this.markForDead = false;
         this.killedBy = "";
         this.nbPointsInRound = 0;
+    }
+    keyControl() {
+        const { dirx, diry } = this.direction();
+        // get last segment
+        const nbPoints = this.points.length;
+        const pointLast = this.points[nbPoints - 1];
+        let hasChangedDirection = true;
+        if (this.up && diry == 0)
+            this.addPoint(pointLast.x, pointLast.y - this.speed);
+        else if (this.down && diry == 0)
+            this.addPoint(pointLast.x, pointLast.y + this.speed);
+        else if (this.left && dirx == 0)
+            this.addPoint(pointLast.x - this.speed, pointLast.y);
+        else if (this.right && dirx == 0)
+            this.addPoint(pointLast.x + this.speed, pointLast.y);
+        else
+            hasChangedDirection = false;
+        // check collision at direction changed
+        if (hasChangedDirection)
+            checkPlayerCollisions(this);
     }
 }
 var GameStatus;
@@ -1004,7 +1029,7 @@ function physicsLoop(room) {
     // check for collisions
     game.players.forEach((player) => {
         if (player.alive)
-            checkPlayerCollisions(player, game);
+            checkPlayerCollisions(player, room);
     });
     // check for double collisions
     for (const [id, player] of game.players) {
@@ -1035,7 +1060,12 @@ function physicsLoop(room) {
                 player.reset();
         });
 }
-function checkPlayerCollisions(player, game) {
+function checkPlayerCollisions(player, room = "") {
+    if (room == "")
+        room = player.room;
+    if (!games.has(player.room))
+        return;
+    const game = games.get(player.room);
     for (const [id, otherPlayer] of game.players) {
         if (collideRay(player, otherPlayer)) {
             player.markForDead = true;
