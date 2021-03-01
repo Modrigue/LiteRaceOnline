@@ -41,10 +41,20 @@ class Box_S {
         this._points[0] = new Point2_S(Math.round(x1), Math.round(y1));
         this._points[1] = new Point2_S(Math.round(x2), Math.round(y2));
         this.color = color;
-        this.image = null;
     }
     get points() { return this._points; }
     set points(value) { this._points = value; }
+}
+class Disc_S {
+    constructor(x, y, r, color) {
+        this._center = new Point2(x, y);
+        this._radius = r;
+        this.color = color;
+    }
+    get center() { return this._center; }
+    set center(value) { this._center = value; }
+    get radius() { return this._radius; }
+    set radius(value) { this._radius = value; }
 }
 class LiteRay_S {
     constructor() {
@@ -245,6 +255,11 @@ function pointInBox(x, y, box) {
     const yMin = Math.min(box.points[0].y, box.points[1].y);
     const yMax = Math.max(box.points[0].y, box.points[1].y);
     return (xMin <= x && x <= xMax && yMin <= y && y <= yMax);
+}
+// returns true if point (x, y) is in disc
+function pointInDisc(x, y, disc) {
+    const dist = Math.sqrt((x - disc.center.x) * (y - disc.center.y) + (y - disc.center.y) * (y - disc.center.y));
+    return (dist <= this.radius);
 }
 function collideRay(ray1, ray2) {
     const pointLast = ray1.getLastPoint();

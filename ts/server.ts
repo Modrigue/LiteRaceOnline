@@ -58,7 +58,6 @@ class Box_S
     public set points(value : Array<Point2_S>) { this._points = value; }
 
     public color: string;
-    public image: (HTMLImageElement | null);
     
     constructor(x1: number, y1: number, x2: number, y2: number, color: string)
     {
@@ -67,7 +66,27 @@ class Box_S
         this._points[1] = new Point2_S(Math.round(x2), Math.round(y2));
 
         this.color = color;
-        this.image = null;
+    }
+}
+
+class Disc_S
+{
+    private _center : Point2_S;
+    public get center() : Point2_S { return this._center; }
+    public set center(value : Point2_S) { this._center = value; }
+
+    private _radius : number;
+    public get radius() : number { return this._radius; }
+    public set radius(value : number) { this._radius = value; }
+    
+
+    public color: string;
+    
+    constructor(x: number, y: number, r: number, color: string)
+    {
+        this._center = new Point2(x, y);
+        this._radius = r;
+        this.color = color;
     }
 }
 
@@ -346,6 +365,13 @@ function pointInBox(x: number, y: number, box: Box_S): boolean
     const yMax = Math.max(box.points[0].y, box.points[1].y);
 
     return (xMin <= x && x <= xMax && yMin <= y && y <= yMax);
+}
+
+// returns true if point (x, y) is in disc
+function pointInDisc(x: number, y: number, disc: Disc_S): boolean
+{
+    const dist = Math.sqrt((x - disc.center.x)*(y - disc.center.y) + (y - disc.center.y)*(y - disc.center.y));
+    return (dist <= this.radius);
 }
 
 function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
