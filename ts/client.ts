@@ -4,6 +4,7 @@ let STADIUM_H_CLIENT = 360;
 const DEPLOY_CLIENT: boolean = true;
 
 const imgPrepare: HTMLImageElement = new Image();
+let imgPrepareCountdown: HTMLImageElement = new Image();
 const imgScores: HTMLImageElement = new Image();
 const imgGameOver: HTMLImageElement = new Image();
 imgPrepare.src = "./img/prepare_to_race.png";

@@ -15,7 +15,7 @@ var GameMode;
 const FAST_TEST_ON = false;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
 const FAST_TEST_NB_PLAYERS = 2;
-const FAST_TEST_NB_ROUNDS = 15;
+const FAST_TEST_NB_ROUNDS = 12;
 const FAST_TEST_HAS_TEAMS = false;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
 class Point2_S {
@@ -702,22 +702,28 @@ function playNewGame(room) {
     const game = games.get(room);
     game.roundNo = 0;
     game.displayStatus = DisplayStatus_S.PREPARE;
-    io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax, nbRounds: game.nbRounds });
-    // create players
-    setTimeout(() => {
-        newRound(room);
-        let playerParams = Array();
-        for (const [id, player] of game.players) {
-            player.score = player.nbPointsInRound = 0;
-            player.killedBy = "";
-            playerParams.push({
-                id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
-                x2: player.points[1].x, y2: player.points[1].y, color: player.color
-            });
-        }
-        io.to(room).emit('createPlayers', playerParams);
-        game.displayStatus = DisplayStatus_S.PLAYING;
-    }, DURATION_PREPARE_SCREEN * 1000);
+    // set prepare countdown
+    for (let i = DURATION_PREPARE_SCREEN; i >= 0; i--) {
+        setTimeout(() => {
+            io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax,
+                nbRounds: game.nbRounds, countdown: i, initDisplay: (i == DURATION_PREPARE_SCREEN) });
+            // create players and start game
+            if (i == 0) {
+                newRound(room);
+                let playerParams = Array();
+                for (const [id, player] of game.players) {
+                    player.score = player.nbPointsInRound = 0;
+                    player.killedBy = "";
+                    playerParams.push({
+                        id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
+                        x2: player.points[1].x, y2: player.points[1].y, color: player.color
+                    });
+                }
+                io.to(room).emit('createPlayers', playerParams);
+                game.displayStatus = DisplayStatus_S.PLAYING;
+            }
+        }, (DURATION_PREPARE_SCREEN - i) * 1000);
+    }
 }
 function getNextPlayerNoInRoom(room) {
     if (!games.has(room))

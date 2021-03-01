@@ -16,7 +16,10 @@ function renderLoop(): void
             ctx.fillStyle = "white";
             const imgW = 0.5*STADIUM_W_CLIENT;
             const imgH = imgW*imgPrepare.height/imgPrepare.width;
-            ctx.drawImage(imgPrepare, STADIUM_W_CLIENT/2 - imgW/2, STADIUM_H_CLIENT/2 - imgH/2, imgW, imgH);
+            const imgCountdownH = imgH*imgPrepareCountdown.height/imgPrepare.height;
+            const imgCountdownW = imgCountdownH*imgPrepareCountdown.width/imgPrepareCountdown.height;
+            ctx.drawImage(imgPrepare, STADIUM_W_CLIENT/2 - imgW/2, 1/3*STADIUM_H_CLIENT - imgH/2, imgW, imgH);
+            ctx.drawImage(imgPrepareCountdown, STADIUM_W_CLIENT/2 - imgCountdownW/2, 2/3*STADIUM_H_CLIENT - imgCountdownH/2, imgCountdownW, imgCountdownH);
             break;
 
         case DisplayStatus.PLAYING:

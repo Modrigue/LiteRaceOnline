@@ -1,4 +1,4 @@
-socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds: number}) => {
+socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds: number, countdown: number, initDisplay: boolean}) => {
 
     //(<HTMLParagraphElement>document.getElementById('gameTitle')).innerText
     //    = `Game ${params.room} - ${params.nbPlayersMax} players - ${params.nbRounds} rounds`;
@@ -12,7 +12,10 @@ socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds:
 
     canvas.focus();
     displayStatus = DisplayStatus.PREPARE;
-    requestAnimationFrame(renderOnly);
+    imgPrepareCountdown.src = `./img/${params.countdown}.png`;
+
+    if (params.initDisplay)
+        requestAnimationFrame(renderOnly);
 });
 
 socket.on('createPlayers', (params: Array<{id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string}>) => {

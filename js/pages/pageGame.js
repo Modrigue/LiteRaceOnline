@@ -9,7 +9,9 @@ socket.on('prepareGame', (params) => {
     winners = new Array();
     canvas.focus();
     displayStatus = DisplayStatus.PREPARE;
-    requestAnimationFrame(renderOnly);
+    imgPrepareCountdown.src = `./img/${params.countdown}.png`;
+    if (params.initDisplay)
+        requestAnimationFrame(renderOnly);
 });
 socket.on('createPlayers', (params) => {
     PLAYERS = new Map();
