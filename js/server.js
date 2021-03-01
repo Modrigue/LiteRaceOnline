@@ -46,8 +46,8 @@ class Box_S {
     set points(value) { this._points = value; }
 }
 class Disc_S {
-    constructor(x, y, r, color) {
-        this._center = new Point2(x, y);
+    constructor(x, y, r, color = "white") {
+        this._center = new Point2_S(x, y);
         this._radius = r;
         this.color = color;
     }
@@ -226,6 +226,25 @@ function collideBox(ray, box) {
     }
     return false;
 }
+function collideDisc(ray, disc) {
+    const pointLast = ray.getLastPoint();
+    const xr = pointLast.x;
+    const yr = pointLast.y;
+    if (xr == -Infinity || yr == -Infinity)
+        return false;
+    for (let i = ray.speed - 1; i >= 0; i--) {
+        const xrCur = xr - i * ray.direction().dirx;
+        const yrCur = yr - i * ray.direction().diry;
+        const collisionCur = pointInDisc(xrCur, yrCur, disc);
+        if (collisionCur) {
+            // store last collision point
+            ray.pointLastCollision.x = xrCur - ray.direction().dirx;
+            ray.pointLastCollision.y = yrCur - ray.direction().diry;
+            return true;
+        }
+    }
+    return false;
+}
 // returns true if point (x, y) is on segment
 // TODO: use Bresenham's algorithm or SAT?
 function pointOnSegment(x, y, x1, y1, x2, y2) {
@@ -258,8 +277,8 @@ function pointInBox(x, y, box) {
 }
 // returns true if point (x, y) is in disc
 function pointInDisc(x, y, disc) {
-    const dist = Math.sqrt((x - disc.center.x) * (y - disc.center.y) + (y - disc.center.y) * (y - disc.center.y));
-    return (dist <= this.radius);
+    const dist = Math.sqrt((x - disc.center.x) * (x - disc.center.x) + (y - disc.center.y) * (y - disc.center.y));
+    return (dist <= disc.radius);
 }
 function collideRay(ray1, ray2) {
     const pointLast = ray1.getLastPoint();
@@ -396,6 +415,28 @@ class Player_S extends LiteRay_S {
             checkPlayerCollisions(this);
     }
 }
+var ItemScope;
+(function (ItemScope) {
+    ItemScope[ItemScope["NONE"] = 0] = "NONE";
+    ItemScope[ItemScope["ALL"] = 1] = "ALL";
+    ItemScope[ItemScope["PLAYER"] = 2] = "PLAYER";
+    ItemScope[ItemScope["ENEMIES"] = 3] = "ENEMIES";
+})(ItemScope || (ItemScope = {}));
+;
+var ItemType;
+(function (ItemType) {
+    ItemType[ItemType["NONE"] = 0] = "NONE";
+    ItemType[ItemType["SPEED_INCREASE"] = 1] = "SPEED_INCREASE";
+    ItemType[ItemType["SPEED_DECREASE"] = 2] = "SPEED_DECREASE";
+})(ItemType || (ItemType = {}));
+;
+class Item extends Disc_S {
+    constructor() {
+        super(...arguments);
+        this.scope = ItemScope.NONE;
+        this.type = ItemType.NONE;
+    }
+}
 var GameStatus;
 (function (GameStatus) {
     GameStatus[GameStatus["NONE"] = 0] = "NONE";
@@ -422,6 +463,8 @@ class Game {
         this.obstacles = new Array();
         this.compressedBlocksInit = false;
         this.compressedBlocksDateTime = 0;
+        this.items = new Array();
+        this.itemAppearedDateTime = 0;
         this.nbRounds = 10;
         this.roundNo = 0;
         this.roundStartDateTime = 0;
@@ -1052,6 +1095,8 @@ function gameLogic(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
+    // create / delete random items
+    generateItems(room);
     // create compressing blocks if delay passed
     if ((game.roundNo + 2) % 5 == 0) {
         const delayCompression = 3; // s
@@ -1137,6 +1182,7 @@ function checkPlayerCollisions(player, room = "") {
     if (!games.has(player.room))
         return;
     const game = games.get(player.room);
+    // players
     for (const [id, otherPlayer] of game.players) {
         if (collideRay(player, otherPlayer)) {
             player.markForDead = true;
@@ -1144,6 +1190,7 @@ function checkPlayerCollisions(player, room = "") {
             //console.log(`PLAYER ${player.no} COLLISION RAY`);
         }
     }
+    // stadium
     for (const wall of game.stadium) {
         if (!player.markForDead)
             if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
@@ -1152,6 +1199,7 @@ function checkPlayerCollisions(player, room = "") {
                 //console.log(`PLAYER ${player.no} COLLISION WALL`);
             }
     }
+    // obstacles
     for (const obstacle of game.obstacles) {
         if (!player.markForDead)
             if (collideBox(player, obstacle)) {
@@ -1160,6 +1208,18 @@ function checkPlayerCollisions(player, room = "") {
                 //console.log(`PLAYER ${player.no} COLLISION OBSTACLE`);
             }
     }
+    // items
+    let itemTaken = false;
+    for (const item of game.items) {
+        const lastPoint = player.getLastPoint();
+        if (pointInDisc(lastPoint.x, lastPoint.y, item)) {
+            applyItemEffect(room, player, item);
+            itemTaken = true;
+            console.log(`PLAYER ${player.no} GET ITEM`, lastPoint.x, lastPoint.y);
+        }
+    }
+    if (itemTaken)
+        removeItem(room);
 }
 function userInteraction(room) {
     if (!games.has(room))
@@ -1280,6 +1340,7 @@ function newStadium(room) {
     const game = games.get(room);
     game.stadium = new Array();
     game.obstacles = new Array();
+    game.items = new Array();
     game.compressedBlocksInit = false;
     let newStadiumId = "0";
     if (game.roundNo % 10 == 0)
@@ -1409,6 +1470,7 @@ function newStadium(room) {
     }
     sendStadium(room);
     sendObstacles(room);
+    sendItems(room);
 }
 function putWallsAround(game) {
     // left
@@ -1441,6 +1503,72 @@ function newObstacles(room) {
     // create obstacles
     game.obstacles = obstacles;
     sendObstacles(room);
+}
+function generateItems(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    const DURATION_ITEM = 4; // s
+    if (game.items.length == 0) {
+        const percentAppear = 100 * Math.random();
+        if (percentAppear >= 99) {
+            const percentScope = 100 * Math.random();
+            const percentType = 100 * Math.random();
+            const x = 1 / 16 * STADIUM_W + 7 / 8 * STADIUM_W * Math.random();
+            const y = 1 / 16 * STADIUM_H + 7 / 8 * STADIUM_H * Math.random();
+            const item = new Item(x, y, 20);
+            item.scope = ItemScope.PLAYER;
+            item.type = (percentType >= 50) ? ItemType.SPEED_INCREASE : ItemType.SPEED_DECREASE;
+            game.items.push(item);
+            game.itemAppearedDateTime = Date.now();
+            sendItems(room);
+        }
+    }
+    else {
+        // despawn item
+        if (Date.now() - game.itemAppearedDateTime >= DURATION_ITEM * 1000)
+            removeItem(room);
+    }
+}
+function removeItem(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    game.items.pop();
+    game.itemAppearedDateTime = 0;
+    sendItems(room);
+}
+function applyItemEffect(room, player, item) {
+    if (!games.has(room) && true)
+        return;
+    const game = games.get(room);
+    switch (item.type) {
+        case ItemType.SPEED_INCREASE:
+            player.speed++;
+            break;
+        case ItemType.SPEED_DECREASE:
+            player.speed = Math.max(player.speed - 1, 1);
+            break;
+    }
+}
+function sendItems(room) {
+    if (!games.has(room) && true)
+        return;
+    const game = games.get(room);
+    let params = new Array();
+    for (const item of game.items) {
+        let typeStr = "";
+        switch (item.type) {
+            case ItemType.SPEED_INCREASE:
+                typeStr = "speed_increase";
+                break;
+            case ItemType.SPEED_DECREASE:
+                typeStr = "speed_decrease";
+                break;
+        }
+        params.push({ x: item.center.x, y: item.center.y, scope: "player", type: typeStr });
+    }
+    io.to(room).emit('items', params);
 }
 function applyCompressingBlocks(room) {
     if (!games.has(room))

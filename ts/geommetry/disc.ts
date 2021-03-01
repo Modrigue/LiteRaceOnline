@@ -10,24 +10,27 @@ class Disc
     
 
     public color: string;
-    public image: (HTMLImageElement | null);
+    public images: Array<HTMLImageElement>;
     
-    constructor(x: number, y: number, r: number, color: string)
+    constructor(x: number, y: number, r: number, color: string = "black")
     {
         this._center = new Point2(x, y);
         this._radius = r;
 
         this.color = color;
-        this.image = null;
+        this.images = new Array<HTMLImageElement>();
     }
 
     draw(ctx: CanvasRenderingContext2D): void
     {
         // display image if existing
-        if (this.image !== null)
+        if (this.images.length)
         {
-            ctx.drawImage(this.image, this.center.x - this.radius, this.center.y - this.radius,
-                2*this.radius, 2*this.radius);
+            for (const image of this.images)
+            {
+                ctx.drawImage(image, this.center.x - this.radius, this.center.y - this.radius,
+                    2*this.radius, 2*this.radius);   
+            }
         }
         else
         {

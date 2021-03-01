@@ -1,10 +1,10 @@
 "use strict";
 class Disc {
-    constructor(x, y, r, color) {
+    constructor(x, y, r, color = "black") {
         this._center = new Point2(x, y);
         this._radius = r;
         this.color = color;
-        this.image = null;
+        this.images = new Array();
     }
     get center() { return this._center; }
     set center(value) { this._center = value; }
@@ -12,8 +12,10 @@ class Disc {
     set radius(value) { this._radius = value; }
     draw(ctx) {
         // display image if existing
-        if (this.image !== null) {
-            ctx.drawImage(this.image, this.center.x - this.radius, this.center.y - this.radius, 2 * this.radius, 2 * this.radius);
+        if (this.images.length) {
+            for (const image of this.images) {
+                ctx.drawImage(image, this.center.x - this.radius, this.center.y - this.radius, 2 * this.radius, 2 * this.radius);
+            }
         }
         else {
             ctx.beginPath();

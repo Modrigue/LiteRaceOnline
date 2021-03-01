@@ -77,14 +77,13 @@ class Disc_S
 
     private _radius : number;
     public get radius() : number { return this._radius; }
-    public set radius(value : number) { this._radius = value; }
-    
+    public set radius(value : number) { this._radius = value; }   
 
     public color: string;
     
-    constructor(x: number, y: number, r: number, color: string)
+    constructor(x: number, y: number, r: number, color: string = "white")
     {
-        this._center = new Point2(x, y);
+        this._center = new Point2_S(x, y);
         this._radius = r;
         this.color = color;
     }
@@ -328,6 +327,33 @@ function collideBox(ray: LiteRay_S, box: Box_S): boolean
     return false;
 }
 
+function collideDisc(ray: LiteRay_S, disc: Disc_S): boolean
+{
+    const pointLast: Point2_S = ray.getLastPoint();
+    const xr = pointLast.x;
+    const yr = pointLast.y;
+
+    if (xr == -Infinity || yr == -Infinity)
+        return false;
+
+    for (let i = ray.speed - 1; i >= 0; i--)
+    {
+        const xrCur = xr - i * ray.direction().dirx;
+        const yrCur = yr - i * ray.direction().diry;
+
+        const collisionCur = pointInDisc(xrCur, yrCur, disc);
+        if (collisionCur)
+        {
+            // store last collision point
+            ray.pointLastCollision.x = xrCur - ray.direction().dirx;
+            ray.pointLastCollision.y = yrCur - ray.direction().diry;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // returns true if point (x, y) is on segment
 // TODO: use Bresenham's algorithm or SAT?
 function pointOnSegment(x: number, y: number, x1: number, y1: number, x2: number, y2: number): boolean
@@ -370,8 +396,8 @@ function pointInBox(x: number, y: number, box: Box_S): boolean
 // returns true if point (x, y) is in disc
 function pointInDisc(x: number, y: number, disc: Disc_S): boolean
 {
-    const dist = Math.sqrt((x - disc.center.x)*(y - disc.center.y) + (y - disc.center.y)*(y - disc.center.y));
-    return (dist <= this.radius);
+    const dist = Math.sqrt((x - disc.center.x)*(x- disc.center.x) + (y - disc.center.y)*(y - disc.center.y));
+    return (dist <= disc.radius);
 }
 
 function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
@@ -547,6 +573,14 @@ class Player_S extends LiteRay_S
     }
 }
 
+enum ItemScope { NONE, ALL, PLAYER, ENEMIES };
+enum ItemType { NONE, SPEED_INCREASE, SPEED_DECREASE };
+class Item extends Disc_S
+{
+    scope = ItemScope.NONE;
+    type = ItemType.NONE;
+}
+
 enum GameStatus
 {
     NONE,
@@ -578,6 +612,9 @@ class Game
 
     compressedBlocksInit: boolean = false;
     compressedBlocksDateTime: number = 0;
+
+    items = new Array<Item>();
+    itemAppearedDateTime: number = 0;
 
     nbRounds: number = 10;
     roundNo: number = 0;
@@ -1386,6 +1423,9 @@ function gameLogic(room: string): void
         return;
     const game = <Game>games.get(room);
 
+    // create / delete random items
+    generateItems(room);
+
     // create compressing blocks if delay passed
     if ((game.roundNo + 2) % 5 == 0)
     {
@@ -1496,6 +1536,7 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
         return;
     const game = <Game>games.get(player.room);
 
+    // players
     for (const [id, otherPlayer] of game.players)
     {
         if (collideRay(player, <LiteRay_S>otherPlayer))
@@ -1506,6 +1547,7 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
         }
     }
 
+    // stadium
     for (const wall of game.stadium)
     {
         if (!player.markForDead)
@@ -1517,6 +1559,7 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
             }
     }
 
+    // obstacles
     for (const obstacle of game.obstacles)
     {
         if (!player.markForDead)
@@ -1527,6 +1570,21 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
                 //console.log(`PLAYER ${player.no} COLLISION OBSTACLE`);
             }
     }
+
+    // items
+    let itemTaken = false;
+    for (const item of game.items)
+    {
+        const lastPoint = player.getLastPoint();
+        if (pointInDisc(lastPoint.x, lastPoint.y, <Disc_S>item))
+        {
+            applyItemEffect(room, player, item);
+            itemTaken = true;
+            console.log(`PLAYER ${player.no} GET ITEM`, lastPoint.x, lastPoint.y);
+        }
+    }
+    if (itemTaken)
+        removeItem(room);
 }
 
 function userInteraction(room: string): void
@@ -1686,6 +1744,7 @@ function newStadium(room: string): void
     const game = <Game>games.get(room);
     game.stadium = new Array<Segment_S>();
     game.obstacles = new Array<Box_S>();
+    game.items = new Array<Item>();
     game.compressedBlocksInit = false;
 
     let newStadiumId = "0";
@@ -1846,6 +1905,7 @@ function newStadium(room: string): void
 
     sendStadium(room);
     sendObstacles(room);
+    sendItems(room);
 }
 
 function putWallsAround(game: Game): void
@@ -1891,6 +1951,96 @@ function newObstacles(room: string): void
     game.obstacles = obstacles;
 
     sendObstacles(room);
+}
+
+function generateItems(room: string): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game>games.get(room);
+
+    const DURATION_ITEM = 4; // s
+    if (game.items.length == 0)
+    {
+        const percentAppear = 100*Math.random();
+        if (percentAppear >= 99)
+        {
+            const percentScope = 100*Math.random();
+            const percentType = 100*Math.random();
+
+            const x = 1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
+            const y = 1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
+
+            const item = new Item(x, y, 20);
+            item.scope = ItemScope.PLAYER;
+            item.type = (percentType >= 50) ? ItemType.SPEED_INCREASE : ItemType.SPEED_DECREASE;
+            game.items.push(item);
+            game.itemAppearedDateTime = Date.now();
+            sendItems(room);
+        }
+    }
+    else
+    {
+        // despawn item
+        if (Date.now() - game.itemAppearedDateTime >= DURATION_ITEM*1000)
+            removeItem(room);
+    }
+}
+
+function removeItem(room: string): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game>games.get(room);
+
+    game.items.pop();
+    game.itemAppearedDateTime = 0;
+    sendItems(room);
+}
+
+function applyItemEffect(room: string, player: Player_S, item: Item): void
+{
+    if (!games.has(room) && true)
+        return;
+    const game = <Game>games.get(room);
+
+    switch(item.type)
+    {
+        case ItemType.SPEED_INCREASE:
+            player.speed++;
+            break;
+
+        case ItemType.SPEED_DECREASE:
+            player.speed = Math.max(player.speed - 1, 1);
+            break;
+    }
+}
+
+function sendItems(room: string): void
+{
+    if (!games.has(room) && true)
+        return;
+    const game = <Game>games.get(room);
+
+    let params = new Array<{ x: number, y: number, scope: string, type: string }>();
+    for (const item of game.items)
+    {
+        let typeStr = "";
+        switch (item.type)
+        {
+            case ItemType.SPEED_INCREASE:
+                typeStr = "speed_increase";
+                break;
+        
+            case ItemType.SPEED_DECREASE:
+                typeStr = "speed_decrease";
+                break;
+        }
+
+        params.push({ x: item.center.x, y: item.center.y, scope: "player", type: typeStr });
+    }
+
+    io.to(room).emit('items', params);
 }
 
 function applyCompressingBlocks(room: string): void
