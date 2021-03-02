@@ -1,7 +1,7 @@
 "use strict";
 const STADIUM_W = 640;
 const STADIUM_H = 360;
-const DURATION_PREPARE_SCREEN = 1; // in s
+const DURATION_PREPARE_SCREEN = 3; // in s
 const DURATION_SCORES_SCREEN = 3;
 const DURATION_GAME_OVER_SCREEN = 10;
 const DEPLOY = true;
@@ -12,10 +12,10 @@ var GameMode;
     GameMode[GameMode["SURVIVOR"] = 1] = "SURVIVOR";
 })(GameMode || (GameMode = {}));
 // for tests purposes only
-const FAST_TEST_ON = true;
+const FAST_TEST_ON = false;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
 const FAST_TEST_NB_PLAYERS = 2;
-const FAST_TEST_NB_ROUNDS = 12;
+const FAST_TEST_NB_ROUNDS = 15;
 const FAST_TEST_HAS_TEAMS = false;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
 class Point2_S {
@@ -642,16 +642,19 @@ function connected(socket) {
                     console.log(`Client '${socket.id}' starts game '${room}'`);
                     game.status = GameStatus.PLAYING;
                     playNewGame(room);
+                    break;
                 case GameStatus.PLAYING:
                     // join started game
                     console.log(`Client '${socket.id}' joins started game '${room}'`);
                     playNewGame(room);
+                    break;
                 default:
                     // for tests only
                     if (FAST_TEST_ON) {
                         game.status = GameStatus.PLAYING;
                         playNewGame(room);
                     }
+                    break;
             }
         }
         updateRoomsList();
@@ -1563,11 +1566,14 @@ function generateItems(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
-    const DURATION_ITEM = 4; // s
+    const DURATION_ITEM = 5; // s
     if (game.items.length == 0) {
         const percentAppear = 100 * Math.random();
         if (percentAppear >= 99) {
-            const itemPos = getNewItemPosition();
+            // generate new item
+            const itemPos = getNewItemPosition(room);
+            if (itemPos.x == -Infinity || itemPos.y == -Infinity)
+                return;
             const item = new Item(itemPos.x, itemPos.y, 20);
             // compute random type / scope
             const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
@@ -1589,9 +1595,26 @@ function generateItems(room) {
     }
 }
 // compute random item position, not nearby players' current positions
-function getNewItemPosition() {
-    let x = 200; //1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
-    let y = 200; //1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
+function getNewItemPosition(room) {
+    if (!games.has(room))
+        return new Point2_S(-Infinity, -Infinity);
+    const game = games.get(room);
+    let x = STADIUM_W / 2;
+    let y = STADIUM_H / 2;
+    for (let i = 0; i < 100; i++) {
+        x = 1 / 16 * STADIUM_W + 7 / 8 * STADIUM_W * Math.random();
+        y = 1 / 16 * STADIUM_H + 7 / 8 * STADIUM_H * Math.random();
+        let positionOk = true;
+        for (const [id, player] of game.players) {
+            const lastPoint = player.getLastPoint();
+            if (distance(lastPoint.x, lastPoint.y, x, y) <= 80) {
+                positionOk = false;
+                break;
+            }
+        }
+        if (positionOk)
+            break;
+    }
     return new Point2_S(x, y);
 }
 // compute (random?) scope given type
@@ -1872,5 +1895,8 @@ function getRandomElement(array) {
     const nbElems = array.length;
     const index = Math.floor(nbElems * Math.random());
     return array[index];
+}
+function distance(x1, y1, x2, y2) {
+    return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
 //# sourceMappingURL=server.js.map
