@@ -98,7 +98,7 @@ socket.on('items', (params: Array<{x: number, y: number, scope: string, type: st
         const item = new Disc(data.x, data.y, 20);
         const imgScope: HTMLImageElement = new Image();
         const imgType: HTMLImageElement = new Image();
-        imgScope.src = "./img/item_scope_player.png";
+        imgScope.src = `./img/item_scope_${data.scope}.png`;
         imgType.src = `./img/item_type_${data.type}.png`;
         item.images.push(imgScope);
         item.images.push(imgType);

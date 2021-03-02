@@ -1,7 +1,7 @@
 const STADIUM_W = 640;
 const STADIUM_H = 360;
 
-const DURATION_PREPARE_SCREEN = 3;  // in s
+const DURATION_PREPARE_SCREEN = 1;  // in s
 const DURATION_SCORES_SCREEN = 3;
 const DURATION_GAME_OVER_SCREEN = 10;
 
@@ -11,9 +11,9 @@ const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 enum GameMode { BODYCOUNT, SURVIVOR }
 
 // for tests purposes only
-const FAST_TEST_ON = false;
+const FAST_TEST_ON = true;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
-const FAST_TEST_NB_PLAYERS = 2;
+const FAST_TEST_NB_PLAYERS = 1;
 const FAST_TEST_NB_ROUNDS = 12;
 const FAST_TEST_HAS_TEAMS = false;
 
@@ -547,6 +547,8 @@ class Player_S extends LiteRay_S
     killedBy: string = "";
     nbPointsInRound: number = 0;
 
+    markForItem: boolean = false;
+
     keyControl()
     {
         const { dirx, diry }: { dirx: number, diry: number } = this.direction();
@@ -573,8 +575,9 @@ class Player_S extends LiteRay_S
     }
 }
 
-enum ItemScope { NONE, ALL, PLAYER, ENEMIES };
-enum ItemType { NONE, SPEED_INCREASE, SPEED_DECREASE };
+enum ItemScope { NONE, ALL, PLAYER, ENEMIES, UNKNOWN };
+enum ItemType { NONE, SPEED_INCREASE, SPEED_DECREASE, COMPRESSION,
+    RESET, FREEZE, FAST_TURN, INVINCIBILITY, UNKNOWN };
 class Item extends Disc_S
 {
     scope = ItemScope.NONE;
@@ -1352,6 +1355,7 @@ function initPlayersPositions(room: string): void
     {
         player.alive = true;
         player.markForDead = false;
+        player.markForItem = false;
         player.killedBy = "";
         player.nbPointsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
@@ -1426,14 +1430,18 @@ function gameLogic(room: string): void
     // create / delete random items
     generateItems(room);
 
-    // create compressing blocks if delay passed
+    // update compression if started
+    if (game.compressedBlocksInit)
+        updateCompression(room);
+
+    // init compression if delay passed
     if ((game.roundNo + 2) % 5 == 0)
     {
         const delayCompression = 3; // s
         const curDate = Date.now();
         const roundElapsedTime = curDate - game.roundStartDateTime; // ms
         if (roundElapsedTime > delayCompression * 1000)
-            applyCompressingBlocks(room);
+            initCompression(room);
     }
 
     // display scores if round finished
@@ -1509,7 +1517,8 @@ function physicsLoop(room: string): void
         }
     }
 
-    // apply collisions and deaths
+    // apply collisions, deaths and items
+    let itemTaken = false;
     for (const [id, player] of game.players)
     {
         if (player.markForDead)
@@ -1518,7 +1527,17 @@ function physicsLoop(room: string): void
             player.alive = false;
             player.markForDead = false;
         }
+
+        if (player.markForItem && game.items.length > 0)
+        {
+            const item = game.items[0];
+            applyItemEffect(room, player, item);
+            itemTaken = true;
+            player.markForItem = false;
+        }
     }
+    if (itemTaken)
+        removeItem(room);
 
     // remove dead players' rays if option enabled
     if (game.resetOnKilled)
@@ -1575,12 +1594,10 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     let itemTaken = false;
     for (const item of game.items)
     {
-        const lastPoint = player.getLastPoint();
-        if (pointInDisc(lastPoint.x, lastPoint.y, <Disc_S>item))
+        if (collideDisc(<LiteRay_S>player, <Disc_S>item))
         {
-            applyItemEffect(room, player, item);
-            itemTaken = true;
-            console.log(`PLAYER ${player.no} GET ITEM`, lastPoint.x, lastPoint.y);
+            player.markForItem = true;
+            console.log(`PLAYER ${player.no} GET ITEM`);
         }
     }
     if (itemTaken)
@@ -1964,16 +1981,29 @@ function generateItems(room: string): void
     {
         const percentAppear = 100*Math.random();
         if (percentAppear >= 99)
-        {
-            const percentScope = 100*Math.random();
-            const percentType = 100*Math.random();
-
-            const x = 1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
-            const y = 1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
-
+        {        
+            // compute random position, not nearby players' current positions
+            const x = 200; //1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
+            const y = 200; //1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
             const item = new Item(x, y, 20);
-            item.scope = ItemScope.PLAYER;
-            item.type = (percentType >= 50) ? ItemType.SPEED_INCREASE : ItemType.SPEED_DECREASE;
+
+            // compute random type
+            const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION];
+            //const types: Array<ItemType> = [ItemType.COMPRESSION];
+            item.type = getRandomElement(types);
+
+            // compute (random?) scope given type
+            let scopes: Array<ItemScope> = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
+            switch(item.type)
+            {
+                case ItemType.COMPRESSION:
+                    scopes = [ItemScope.ALL];
+                    break;
+            }
+
+            item.scope = getRandomElement(scopes);
+
+            // generate item
             game.items.push(item);
             game.itemAppearedDateTime = Date.now();
             sendItems(room);
@@ -1998,13 +2028,57 @@ function removeItem(room: string): void
     sendItems(room);
 }
 
-function applyItemEffect(room: string, player: Player_S, item: Item): void
+function applyItemEffect(room: string, playerGotItem: Player_S, item: Item): void
 {
     if (!games.has(room) && true)
         return;
     const game = <Game>games.get(room);
 
-    switch(item.type)
+    // compression: apply to all players
+    if (item.type == ItemType.COMPRESSION)
+    {
+        if (!game.compressedBlocksInit)
+        {
+            initCompression(room);
+            return;
+        }
+    }
+
+    switch(item.scope)
+    {
+        case ItemScope.PLAYER:
+            applyItemEffectToPlayer(room, playerGotItem, item.type);
+            break;
+
+        case ItemScope.ALL:
+            for (const [id, player] of game.players)
+                applyItemEffectToPlayer(room, player, item.type);   
+            break;
+
+        case ItemScope.ENEMIES:
+            if (game.hasTeams)
+            {
+                const team : string = playerGotItem.team;
+                for (const [id, player] of game.players)
+                    if (player.team != team)
+                        applyItemEffectToPlayer(room, player, item.type);
+
+            }
+            else
+                for (const [id, player] of game.players)
+                    if (player !== playerGotItem)
+                        applyItemEffectToPlayer(room, player, item.type);
+            break;
+    }
+}
+
+function applyItemEffectToPlayer(room: string, player: Player_S, type: ItemType): void
+{
+    if (!games.has(room) && true)
+        return;
+    const game = <Game>games.get(room);
+
+    switch(type)
     {
         case ItemType.SPEED_INCREASE:
             player.speed++;
@@ -2025,6 +2099,28 @@ function sendItems(room: string): void
     let params = new Array<{ x: number, y: number, scope: string, type: string }>();
     for (const item of game.items)
     {
+        // get scope
+        let scopeStr = "";
+        switch (item.scope)
+        {
+            case ItemScope.PLAYER:
+                scopeStr = "player";
+                break;
+        
+            case ItemScope.ALL:
+                scopeStr = "all";
+                break;
+
+            case ItemScope.ENEMIES:
+                scopeStr = "enemies";
+                break;
+
+            case ItemScope.UNKNOWN:
+                scopeStr = "unknown";
+                break;
+        }
+
+        // get type
         let typeStr = "";
         switch (item.type)
         {
@@ -2035,20 +2131,43 @@ function sendItems(room: string): void
             case ItemType.SPEED_DECREASE:
                 typeStr = "speed_decrease";
                 break;
+
+            case ItemType.COMPRESSION:
+                typeStr = "compression";
+                break;
+               
+            case ItemType.RESET:
+                typeStr = "reset";
+                break;
+              
+            case ItemType.FREEZE:
+                typeStr = "freeze";
+                break;
+           
+            case ItemType.FAST_TURN:
+                typeStr = "fast_turn";
+                break;
+            
+            case ItemType.INVINCIBILITY:
+                typeStr = "invincibility";
+                break;
+
+            case ItemType.UNKNOWN:
+                typeStr = "unknown";
+                break;
         }
 
-        params.push({ x: item.center.x, y: item.center.y, scope: "player", type: typeStr });
+        params.push({ x: item.center.x, y: item.center.y, scope: scopeStr, type: typeStr });
     }
 
     io.to(room).emit('items', params);
 }
 
-function applyCompressingBlocks(room: string): void
+function initCompression(room: string): void
 {
     if (!games.has(room))
         return;
     const game = <Game>games.get(room);
-
     
     if (!game.compressedBlocksInit)
     {
@@ -2064,21 +2183,31 @@ function applyCompressingBlocks(room: string): void
         game.obstacles = obstacles;
 
         game.compressedBlocksInit = true;
-        game.compressedBlocksDateTime = Date.now();
+        game.compressedBlocksDateTime = Date.now();        
     }
-    else
+
+    sendObstacles(room);
+}
+
+function updateCompression(room: string): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game>games.get(room);
+    
+    if (!game.compressedBlocksInit)
+        return;
+    
+    // update blocks
+    const speedRef = 2;
+    const speed = Math.round(speedRef * Math.min(STADIUM_H, STADIUM_H) / 100); // pixels / s
+    const elapsedTime = Date.now() - game.compressedBlocksDateTime;
+    if (game.obstacles.length >= 4)
     {
-        // update blocks
-        const speedRef = 2;
-        const speed = Math.round(speedRef * Math.min(STADIUM_H, STADIUM_H) / 100); // pixels / s
-        const elapsedTime = Date.now() - game.compressedBlocksDateTime;
-        if (game.obstacles.length >= 4)
-        {
-            game.obstacles[0].points[1].y = Math.floor(speed * elapsedTime / 1000);
-            game.obstacles[1].points[1].y = STADIUM_H - Math.floor(speed * elapsedTime / 1000);
-            game.obstacles[2].points[1].x = Math.floor(speed * elapsedTime / 1000);
-            game.obstacles[3].points[1].x = STADIUM_W - Math.floor(speed * elapsedTime / 1000);
-        }
+        game.obstacles[0].points[1].y = Math.floor(speed * elapsedTime / 1000);
+        game.obstacles[1].points[1].y = STADIUM_H - Math.floor(speed * elapsedTime / 1000);
+        game.obstacles[2].points[1].x = Math.floor(speed * elapsedTime / 1000);
+        game.obstacles[3].points[1].x = STADIUM_W - Math.floor(speed * elapsedTime / 1000);
     }
 
     sendObstacles(room);
@@ -2154,4 +2283,12 @@ function getPlayerRoomFromId(id: string): string
         return "";
 
     return player.room;
+}
+
+function getRandomElement<T>(array: Array<T>): T
+{
+    const nbElems = array.length;
+    const index = Math.floor(nbElems*Math.random());
+
+    return array[index];
 }

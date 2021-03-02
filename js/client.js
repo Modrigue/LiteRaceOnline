@@ -78,7 +78,7 @@ socket.on('items', (params) => {
         const item = new Disc(data.x, data.y, 20);
         const imgScope = new Image();
         const imgType = new Image();
-        imgScope.src = "./img/item_scope_player.png";
+        imgScope.src = `./img/item_scope_${data.scope}.png`;
         imgType.src = `./img/item_type_${data.type}.png`;
         item.images.push(imgScope);
         item.images.push(imgType);

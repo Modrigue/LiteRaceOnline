@@ -1,7 +1,7 @@
 "use strict";
 const STADIUM_W = 640;
 const STADIUM_H = 360;
-const DURATION_PREPARE_SCREEN = 3; // in s
+const DURATION_PREPARE_SCREEN = 1; // in s
 const DURATION_SCORES_SCREEN = 3;
 const DURATION_GAME_OVER_SCREEN = 10;
 const DEPLOY = true;
@@ -12,9 +12,9 @@ var GameMode;
     GameMode[GameMode["SURVIVOR"] = 1] = "SURVIVOR";
 })(GameMode || (GameMode = {}));
 // for tests purposes only
-const FAST_TEST_ON = false;
+const FAST_TEST_ON = true;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
-const FAST_TEST_NB_PLAYERS = 2;
+const FAST_TEST_NB_PLAYERS = 1;
 const FAST_TEST_NB_ROUNDS = 12;
 const FAST_TEST_HAS_TEAMS = false;
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
@@ -393,6 +393,7 @@ class Player_S extends LiteRay_S {
         this.markForDead = false;
         this.killedBy = "";
         this.nbPointsInRound = 0;
+        this.markForItem = false;
     }
     keyControl() {
         const { dirx, diry } = this.direction();
@@ -421,6 +422,7 @@ var ItemScope;
     ItemScope[ItemScope["ALL"] = 1] = "ALL";
     ItemScope[ItemScope["PLAYER"] = 2] = "PLAYER";
     ItemScope[ItemScope["ENEMIES"] = 3] = "ENEMIES";
+    ItemScope[ItemScope["UNKNOWN"] = 4] = "UNKNOWN";
 })(ItemScope || (ItemScope = {}));
 ;
 var ItemType;
@@ -428,6 +430,12 @@ var ItemType;
     ItemType[ItemType["NONE"] = 0] = "NONE";
     ItemType[ItemType["SPEED_INCREASE"] = 1] = "SPEED_INCREASE";
     ItemType[ItemType["SPEED_DECREASE"] = 2] = "SPEED_DECREASE";
+    ItemType[ItemType["COMPRESSION"] = 3] = "COMPRESSION";
+    ItemType[ItemType["RESET"] = 4] = "RESET";
+    ItemType[ItemType["FREEZE"] = 5] = "FREEZE";
+    ItemType[ItemType["FAST_TURN"] = 6] = "FAST_TURN";
+    ItemType[ItemType["INVINCIBILITY"] = 7] = "INVINCIBILITY";
+    ItemType[ItemType["UNKNOWN"] = 8] = "UNKNOWN";
 })(ItemType || (ItemType = {}));
 ;
 class Item extends Disc_S {
@@ -1042,6 +1050,7 @@ function initPlayersPositions(room) {
     for (const [id, player] of game.players) {
         player.alive = true;
         player.markForDead = false;
+        player.markForItem = false;
         player.killedBy = "";
         player.nbPointsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
@@ -1097,13 +1106,16 @@ function gameLogic(room) {
     const game = games.get(room);
     // create / delete random items
     generateItems(room);
-    // create compressing blocks if delay passed
+    // update compression if started
+    if (game.compressedBlocksInit)
+        updateCompression(room);
+    // init compression if delay passed
     if ((game.roundNo + 2) % 5 == 0) {
         const delayCompression = 3; // s
         const curDate = Date.now();
         const roundElapsedTime = curDate - game.roundStartDateTime; // ms
         if (roundElapsedTime > delayCompression * 1000)
-            applyCompressingBlocks(room);
+            initCompression(room);
     }
     // display scores if round finished
     if (roundFinished(room))
@@ -1161,14 +1173,23 @@ function physicsLoop(room) {
                 computeDoubleCollision(player, killer);
         }
     }
-    // apply collisions and deaths
+    // apply collisions, deaths and items
+    let itemTaken = false;
     for (const [id, player] of game.players) {
         if (player.markForDead) {
             player.applyCollision();
             player.alive = false;
             player.markForDead = false;
         }
+        if (player.markForItem && game.items.length > 0) {
+            const item = game.items[0];
+            applyItemEffect(room, player, item);
+            itemTaken = true;
+            player.markForItem = false;
+        }
     }
+    if (itemTaken)
+        removeItem(room);
     // remove dead players' rays if option enabled
     if (game.resetOnKilled)
         game.players.forEach((player) => {
@@ -1211,11 +1232,9 @@ function checkPlayerCollisions(player, room = "") {
     // items
     let itemTaken = false;
     for (const item of game.items) {
-        const lastPoint = player.getLastPoint();
-        if (pointInDisc(lastPoint.x, lastPoint.y, item)) {
-            applyItemEffect(room, player, item);
-            itemTaken = true;
-            console.log(`PLAYER ${player.no} GET ITEM`, lastPoint.x, lastPoint.y);
+        if (collideDisc(player, item)) {
+            player.markForItem = true;
+            console.log(`PLAYER ${player.no} GET ITEM`);
         }
     }
     if (itemTaken)
@@ -1512,13 +1531,23 @@ function generateItems(room) {
     if (game.items.length == 0) {
         const percentAppear = 100 * Math.random();
         if (percentAppear >= 99) {
-            const percentScope = 100 * Math.random();
-            const percentType = 100 * Math.random();
-            const x = 1 / 16 * STADIUM_W + 7 / 8 * STADIUM_W * Math.random();
-            const y = 1 / 16 * STADIUM_H + 7 / 8 * STADIUM_H * Math.random();
+            // compute random position, not nearby players' current positions
+            const x = 200; //1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
+            const y = 200; //1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
             const item = new Item(x, y, 20);
-            item.scope = ItemScope.PLAYER;
-            item.type = (percentType >= 50) ? ItemType.SPEED_INCREASE : ItemType.SPEED_DECREASE;
+            // compute random type
+            const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION];
+            //const types: Array<ItemType> = [ItemType.COMPRESSION];
+            item.type = getRandomElement(types);
+            // compute (random?) scope given type
+            let scopes = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
+            switch (item.type) {
+                case ItemType.COMPRESSION:
+                    scopes = [ItemScope.ALL];
+                    break;
+            }
+            item.scope = getRandomElement(scopes);
+            // generate item
             game.items.push(item);
             game.itemAppearedDateTime = Date.now();
             sendItems(room);
@@ -1538,11 +1567,44 @@ function removeItem(room) {
     game.itemAppearedDateTime = 0;
     sendItems(room);
 }
-function applyItemEffect(room, player, item) {
+function applyItemEffect(room, playerGotItem, item) {
     if (!games.has(room) && true)
         return;
     const game = games.get(room);
-    switch (item.type) {
+    // compression: apply to all players
+    if (item.type == ItemType.COMPRESSION) {
+        if (!game.compressedBlocksInit) {
+            initCompression(room);
+            return;
+        }
+    }
+    switch (item.scope) {
+        case ItemScope.PLAYER:
+            applyItemEffectToPlayer(room, playerGotItem, item.type);
+            break;
+        case ItemScope.ALL:
+            for (const [id, player] of game.players)
+                applyItemEffectToPlayer(room, player, item.type);
+            break;
+        case ItemScope.ENEMIES:
+            if (game.hasTeams) {
+                const team = playerGotItem.team;
+                for (const [id, player] of game.players)
+                    if (player.team != team)
+                        applyItemEffectToPlayer(room, player, item.type);
+            }
+            else
+                for (const [id, player] of game.players)
+                    if (player !== playerGotItem)
+                        applyItemEffectToPlayer(room, player, item.type);
+            break;
+    }
+}
+function applyItemEffectToPlayer(room, player, type) {
+    if (!games.has(room) && true)
+        return;
+    const game = games.get(room);
+    switch (type) {
         case ItemType.SPEED_INCREASE:
             player.speed++;
             break;
@@ -1557,6 +1619,23 @@ function sendItems(room) {
     const game = games.get(room);
     let params = new Array();
     for (const item of game.items) {
+        // get scope
+        let scopeStr = "";
+        switch (item.scope) {
+            case ItemScope.PLAYER:
+                scopeStr = "player";
+                break;
+            case ItemScope.ALL:
+                scopeStr = "all";
+                break;
+            case ItemScope.ENEMIES:
+                scopeStr = "enemies";
+                break;
+            case ItemScope.UNKNOWN:
+                scopeStr = "unknown";
+                break;
+        }
+        // get type
         let typeStr = "";
         switch (item.type) {
             case ItemType.SPEED_INCREASE:
@@ -1565,12 +1644,30 @@ function sendItems(room) {
             case ItemType.SPEED_DECREASE:
                 typeStr = "speed_decrease";
                 break;
+            case ItemType.COMPRESSION:
+                typeStr = "compression";
+                break;
+            case ItemType.RESET:
+                typeStr = "reset";
+                break;
+            case ItemType.FREEZE:
+                typeStr = "freeze";
+                break;
+            case ItemType.FAST_TURN:
+                typeStr = "fast_turn";
+                break;
+            case ItemType.INVINCIBILITY:
+                typeStr = "invincibility";
+                break;
+            case ItemType.UNKNOWN:
+                typeStr = "unknown";
+                break;
         }
-        params.push({ x: item.center.x, y: item.center.y, scope: "player", type: typeStr });
+        params.push({ x: item.center.x, y: item.center.y, scope: scopeStr, type: typeStr });
     }
     io.to(room).emit('items', params);
 }
-function applyCompressingBlocks(room) {
+function initCompression(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
@@ -1587,17 +1684,23 @@ function applyCompressingBlocks(room) {
         game.compressedBlocksInit = true;
         game.compressedBlocksDateTime = Date.now();
     }
-    else {
-        // update blocks
-        const speedRef = 2;
-        const speed = Math.round(speedRef * Math.min(STADIUM_H, STADIUM_H) / 100); // pixels / s
-        const elapsedTime = Date.now() - game.compressedBlocksDateTime;
-        if (game.obstacles.length >= 4) {
-            game.obstacles[0].points[1].y = Math.floor(speed * elapsedTime / 1000);
-            game.obstacles[1].points[1].y = STADIUM_H - Math.floor(speed * elapsedTime / 1000);
-            game.obstacles[2].points[1].x = Math.floor(speed * elapsedTime / 1000);
-            game.obstacles[3].points[1].x = STADIUM_W - Math.floor(speed * elapsedTime / 1000);
-        }
+    sendObstacles(room);
+}
+function updateCompression(room) {
+    if (!games.has(room))
+        return;
+    const game = games.get(room);
+    if (!game.compressedBlocksInit)
+        return;
+    // update blocks
+    const speedRef = 2;
+    const speed = Math.round(speedRef * Math.min(STADIUM_H, STADIUM_H) / 100); // pixels / s
+    const elapsedTime = Date.now() - game.compressedBlocksDateTime;
+    if (game.obstacles.length >= 4) {
+        game.obstacles[0].points[1].y = Math.floor(speed * elapsedTime / 1000);
+        game.obstacles[1].points[1].y = STADIUM_H - Math.floor(speed * elapsedTime / 1000);
+        game.obstacles[2].points[1].x = Math.floor(speed * elapsedTime / 1000);
+        game.obstacles[3].points[1].x = STADIUM_W - Math.floor(speed * elapsedTime / 1000);
     }
     sendObstacles(room);
 }
@@ -1651,5 +1754,10 @@ function getPlayerRoomFromId(id) {
     if (!games.has(player.room))
         return "";
     return player.room;
+}
+function getRandomElement(array) {
+    const nbElems = array.length;
+    const index = Math.floor(nbElems * Math.random());
+    return array[index];
 }
 //# sourceMappingURL=server.js.map
