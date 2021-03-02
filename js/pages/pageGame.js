@@ -33,5 +33,6 @@ socket.on('updatePlayersPositions', (params) => {
         return;
     let player = PLAYERS.get(params.id);
     player.points = params.points;
+    player.color = params.color;
 });
 //# sourceMappingURL=pageGame.js.map

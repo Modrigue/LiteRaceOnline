@@ -39,11 +39,12 @@ socket.on('createPlayers', (params: Array<{id: string, name: string, x1: number,
     displayStatus = DisplayStatus.PLAYING;
 });
 
-socket.on('updatePlayersPositions', (params: {id: string, points: Array<Point2>}) => {
+socket.on('updatePlayersPositions', (params: {id: string, points: Array<Point2>, color: string}) => {
     //console.log("updateplayers positions:", params);
     if (!PLAYERS.has(params.id))
         return;
 
     let player = <Player>PLAYERS.get(params.id);
     player.points = params.points;
+    player.color = params.color;
 });

@@ -13,7 +13,7 @@ enum GameMode { BODYCOUNT, SURVIVOR }
 // for tests purposes only
 const FAST_TEST_ON = true;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
-const FAST_TEST_NB_PLAYERS = 1;
+const FAST_TEST_NB_PLAYERS = 2;
 const FAST_TEST_NB_ROUNDS = 12;
 const FAST_TEST_HAS_TEAMS = false;
 
@@ -550,6 +550,9 @@ class Player_S extends LiteRay_S
     nbPointsInRound: number = 0;
 
     markForItem: boolean = false;
+
+    frozen: boolean = false;
+    frozenDateTime: number = 0;
 
     keyControl()
     {
@@ -1361,11 +1364,14 @@ function initPlayersPositions(room: string): void
     {
         player.alive = true;
         player.markForDead = false;
-        player.markForItem = false;
         player.killedBy = "";
-        player.fastTurn = false;
         player.nbPointsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
+
+        player.markForItem = false;
+        player.fastTurn = false;
+        player.frozen = false;
+        player.frozenDateTime = 0;
 
         // for fast test only
         if (FAST_TEST_ON) {
@@ -1424,7 +1430,13 @@ function serverLoop()
 
         // client render
         for (let [id, player] of game.players)
-            io.to(room).emit('updatePlayersPositions', { id: id, points: player.points });
+        {
+            let color = player.color;
+            if (player.frozen)
+                color= "white";
+            
+            io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
+        }
     }
 }
 
@@ -1450,6 +1462,16 @@ function gameLogic(room: string): void
         if (roundElapsedTime > delayCompression * 1000)
             initCompression(room);
     }
+
+    // un-freeze frozen players if delay passed
+    const delayFrozen = 4; // s
+    for (const [id, player] of game.players)
+        if (player.frozen)
+        if (Date.now() - player.frozenDateTime >= delayFrozen * 1000)
+        {
+            player.frozen = false;
+            player.frozenDateTime = 0;
+        }    
 
     // display scores if round finished
     if (roundFinished(room))
@@ -1495,7 +1517,7 @@ function physicsLoop(room: string): void
 
     // extend to next point
     game.players.forEach((player) => {
-        if (player.alive)
+        if (player.alive && !player.frozen)
             player.extendsToNextPoint();
     });
 
@@ -1993,34 +2015,12 @@ function generateItems(room: string): void
             const itemPos = getNewItemPosition();
             const item = new Item(itemPos.x, itemPos.y, 20);
 
-            // compute random type
+            // compute random type / scope
             const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
-                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN];
-            //const types: Array<ItemType> = [ItemType.FAST_TURN];
+                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN, ItemType.FREEZE];
+            //const types: Array<ItemType> = [ItemType.FREEZE];
             item.type = getRandomElement(types);
-
-            // compute (random?) scope given type
-            let scopes: Array<ItemScope> = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
-            switch(item.type)
-            {
-                case ItemType.FAST_TURN:
-                    scopes = [ItemScope.ALL, ItemScope.PLAYER];
-                    break;
-
-                case ItemType.COMPRESSION:
-                    scopes = [ItemScope.ALL];
-                    break;
-                
-                case ItemType.RESET:
-                case ItemType.RESET_REVERSE:
-                    scopes = [ItemScope.ALL, ItemScope.ENEMIES];
-                    break;
-                
-                case ItemType.UNKNOWN:
-                    scopes = [ItemScope.UNKNOWN];
-                    break;
-            }
-
+            const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
 
             // generate item
@@ -2044,6 +2044,38 @@ function getNewItemPosition(): Point2_S
     let y = 200; //1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
 
     return new Point2_S(x, y);
+}
+
+// compute (random?) scope given type
+function geItemScopesGivenType(type: ItemType): Array<ItemScope>
+{
+    let scopes: Array<ItemScope> = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
+    
+    switch(type)
+    {
+        case ItemType.FAST_TURN:
+            scopes = [ItemScope.ALL, ItemScope.PLAYER];
+            break;
+
+        case ItemType.COMPRESSION:
+            scopes = [ItemScope.ALL];
+            break;
+        
+        case ItemType.RESET:
+        case ItemType.RESET_REVERSE:
+            scopes = [ItemScope.ALL, ItemScope.ENEMIES];
+            break;
+        
+        case ItemType.FREEZE:
+            scopes = [ItemScope.ENEMIES];
+            break;
+        
+        case ItemType.UNKNOWN:
+            scopes = [ItemScope.UNKNOWN];
+            break;
+    }
+
+    return scopes;
 }
 
 function removeItem(room: string): void
@@ -2124,6 +2156,11 @@ function applyItemEffectToPlayer(room: string, player: Player_S, type: ItemType)
     {
         case ItemType.FAST_TURN:
             player.fastTurn = true;
+            break;
+        
+        case ItemType.FREEZE:
+            player.frozen = true;
+            player.frozenDateTime = Date.now();
             break;
 
         case ItemType.RESET:
