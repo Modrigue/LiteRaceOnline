@@ -1571,8 +1571,8 @@ function generateItems(room) {
             const item = new Item(itemPos.x, itemPos.y, 20);
             // compute random type / scope
             const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
-                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN, ItemType.FREEZE];
-            //const types: Array<ItemType> = [ItemType.INVINCIBILITY];
+                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN,
+                ItemType.FREEZE, ItemType.INVINCIBILITY, ItemType.UNKNOWN];
             item.type = getRandomElement(types);
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
@@ -1638,15 +1638,19 @@ function applyItemEffect(room, playerGotItem, item) {
     // unknown: get random type and scope
     if (item.type == ItemType.UNKNOWN) {
         scope = getRandomElement([ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES]);
-        // type = 
+        const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
+            ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN,
+            ItemType.FREEZE, ItemType.INVINCIBILITY];
+        type = getRandomElement(types);
     }
     // compression: apply to all players
-    if (item.type == ItemType.COMPRESSION) {
+    if (type == ItemType.COMPRESSION) {
         if (!game.compressedBlocksInit) {
             initCompression(room);
             return;
         }
     }
+    // apply item effect given scope
     switch (scope) {
         case ItemScope.PLAYER:
             applyItemEffectToPlayer(room, playerGotItem, type);

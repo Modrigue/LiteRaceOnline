@@ -2029,14 +2029,13 @@ function generateItems(room: string): void
         const percentAppear = 100*Math.random();
         if (percentAppear >= 99)
         {        
-            
             const itemPos = getNewItemPosition();
             const item = new Item(itemPos.x, itemPos.y, 20);
 
             // compute random type / scope
             const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
-                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN, ItemType.FREEZE];
-            //const types: Array<ItemType> = [ItemType.INVINCIBILITY];
+                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN,
+                ItemType.FREEZE, ItemType.INVINCIBILITY, ItemType.UNKNOWN];
             item.type = getRandomElement(types);
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
@@ -2126,12 +2125,15 @@ function applyItemEffect(room: string, playerGotItem: Player_S, item: Item): voi
     if (item.type == ItemType.UNKNOWN)
     {
         scope = getRandomElement([ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES]);
-        // type = 
+
+        const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
+            ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN,
+            ItemType.FREEZE, ItemType.INVINCIBILITY];
+        type = getRandomElement(types);
     }
 
-
     // compression: apply to all players
-    if (item.type == ItemType.COMPRESSION)
+    if (type == ItemType.COMPRESSION)
     {
         if (!game.compressedBlocksInit)
         {
@@ -2140,6 +2142,7 @@ function applyItemEffect(room: string, playerGotItem: Player_S, item: Item): voi
         }
     }
 
+    // apply item effect given scope
     switch(scope)
     {
         case ItemScope.PLAYER:
