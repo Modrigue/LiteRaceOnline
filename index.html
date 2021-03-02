@@ -37,7 +37,17 @@
 
     <div id="pageGameSetup" class="center" style="display: none;">
         <img src="img/logo.png" height="80">
-        <p id="gameSetupTitle" class="center">Game setup</p>
+        <div id="gameItems" class="center">
+            <img class="gameItemChild" src="img/item_scope_player.png" alt="green" width="32">
+            <span class="gameItemChild"> Player</span>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <img class="gameItemChild" src="img/item_scope_all.png" alt="blue" width="32">
+            <span class="gameItemChild"> Everybody</span>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <img class="gameItemChild" src="img/item_scope_enemies.png" alt="red" width="32">
+            <span class="gameItemChild"> Enemies</span>
+        </div>
+        <br>
         <div class="center">
             <input id="gameNbPlayers" type="number" required min=1 max=99 value=2 maxlength="2" disabled />
             <span> players</span>

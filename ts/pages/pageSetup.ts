@@ -8,7 +8,6 @@ socket.on('kickFromRoom', (params: {room: string, id: string}) => {
             alert(`You've been kicked from room '${params.room}'`);
 
         // return to welcome page
-        (<HTMLParagraphElement>document.getElementById('gameSetupTitle')).innerText = `Welcome`;
         (<HTMLSelectElement>document.getElementById('joinRoomName')).selectedIndex = -1;
         setVisible("pageWelcome", true);
         setVisible("pageGameSetup", false);
@@ -287,8 +286,6 @@ socket.on('updatePlayersParams', (params:  Array<{id: string, name: string, colo
 
 socket.on('displaySetup', (response: {room: string, resetReady: boolean}) => {
     
-    (<HTMLParagraphElement>document.getElementById('gameSetupTitle')).innerText
-        = `Game ${response.room} setup`;
     setVisible("pageWelcome", false);
     setVisible("pageGameSetup", true);
     setVisible("pageGame", false);

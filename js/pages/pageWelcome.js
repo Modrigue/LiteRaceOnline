@@ -22,8 +22,6 @@ function onSubmit() {
                 }
                 else if (response.room) {
                     // ok, go to game setup page
-                    document.getElementById('gameSetupTitle').innerText
-                        = `Game ${response.room} setup`;
                     setVisible("pageWelcome", false);
                     setVisible("pageGameSetup", true);
                     setVisible("pageGame", false);
@@ -46,8 +44,6 @@ function onSubmit() {
                 }
                 else if (response.room) {
                     // ok, go to game setup page in creator mode
-                    document.getElementById('gameSetupTitle').innerText
-                        = `Game ${response.room} setup`;
                     setVisible("pageWelcome", false);
                     setVisible("pageGameSetup", true);
                     setVisible("pageGame", false);

@@ -53,6 +53,18 @@ canvas
     position: absolute;
 }
 
+#gameItems
+{
+    text-align: center;
+}
+
+.gameItemChild
+{
+    display: inline-block;
+    vertical-align: middle;
+    text-align: left;
+}
+
 #gameNbPlayers, #gameNbRounds
 {
     width: 48px;

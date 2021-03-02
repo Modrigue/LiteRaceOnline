@@ -5,7 +5,6 @@ socket.on('kickFromRoom', (params) => {
         if (params.id == selfID)
             alert(`You've been kicked from room '${params.room}'`);
         // return to welcome page
-        document.getElementById('gameSetupTitle').innerText = `Welcome`;
         document.getElementById('joinRoomName').selectedIndex = -1;
         setVisible("pageWelcome", true);
         setVisible("pageGameSetup", false);
@@ -224,8 +223,6 @@ socket.on('updatePlayersParams', (params) => {
     updatePlayButton();
 });
 socket.on('displaySetup', (response) => {
-    document.getElementById('gameSetupTitle').innerText
-        = `Game ${response.room} setup`;
     setVisible("pageWelcome", false);
     setVisible("pageGameSetup", true);
     setVisible("pageGame", false);
