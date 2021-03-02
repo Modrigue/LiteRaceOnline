@@ -554,6 +554,9 @@ class Player_S extends LiteRay_S
     frozen: boolean = false;
     frozenDateTime: number = 0;
 
+    invincible: boolean = false;
+    invincibleDateTime: number = 0;
+
     keyControl()
     {
         // if fast turn, handlded in extendsToNextPoint
@@ -1372,6 +1375,8 @@ function initPlayersPositions(room: string): void
         player.fastTurn = false;
         player.frozen = false;
         player.frozenDateTime = 0;
+        player.invincible = false;
+        player.invincibleDateTime = 0;
 
         // for fast test only
         if (FAST_TEST_ON) {
@@ -1434,7 +1439,9 @@ function serverLoop()
             let color = player.color;
             if (player.frozen)
                 color= "white";
-            
+            else if (player.invincible)
+                color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
+
             io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
         }
     }
@@ -1471,7 +1478,17 @@ function gameLogic(room: string): void
         {
             player.frozen = false;
             player.frozenDateTime = 0;
-        }    
+        }
+
+    // cancel invincibility if delay passed
+    const delayInvincibility = 5; // s
+    for (const [id, player] of game.players)
+        if (player.invincible)
+        if (Date.now() - player.invincibleDateTime >= delayInvincibility * 1000)
+        {
+            player.invincible = false;
+            player.invincibleDateTime = 0;
+        }
 
     // display scores if round finished
     if (roundFinished(room))
@@ -1587,6 +1604,7 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     // players
     for (const [id, otherPlayer] of game.players)
     {
+        if (!player.invincible)
         if (collideRay(player, <LiteRay_S>otherPlayer))
         {
             player.markForDead = true;
@@ -1598,7 +1616,7 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     // stadium
     for (const wall of game.stadium)
     {
-        if (!player.markForDead)
+        if (!player.markForDead && !player.invincible)
             if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
             {
                 player.markForDead = true;
@@ -1610,7 +1628,7 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     // obstacles
     for (const obstacle of game.obstacles)
     {
-        if (!player.markForDead)
+        if (!player.markForDead && !player.invincible)
             if (collideBox(player, obstacle))
             {
                 player.markForDead = true;
@@ -2018,7 +2036,7 @@ function generateItems(room: string): void
             // compute random type / scope
             const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
                 ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN, ItemType.FREEZE];
-            //const types: Array<ItemType> = [ItemType.FREEZE];
+            //const types: Array<ItemType> = [ItemType.INVINCIBILITY];
             item.type = getRandomElement(types);
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
@@ -2053,21 +2071,25 @@ function geItemScopesGivenType(type: ItemType): Array<ItemScope>
     
     switch(type)
     {
+        case ItemType.COMPRESSION:
+            scopes = [ItemScope.ALL];
+            break;
+        
         case ItemType.FAST_TURN:
             scopes = [ItemScope.ALL, ItemScope.PLAYER];
             break;
 
-        case ItemType.COMPRESSION:
-            scopes = [ItemScope.ALL];
+        case ItemType.FREEZE:
+            scopes = [ItemScope.ENEMIES];
+            break;
+
+        case ItemType.INVINCIBILITY:
+            scopes = [ItemScope.PLAYER];
             break;
         
         case ItemType.RESET:
         case ItemType.RESET_REVERSE:
             scopes = [ItemScope.ALL, ItemScope.ENEMIES];
-            break;
-        
-        case ItemType.FREEZE:
-            scopes = [ItemScope.ENEMIES];
             break;
         
         case ItemType.UNKNOWN:
@@ -2159,8 +2181,23 @@ function applyItemEffectToPlayer(room: string, player: Player_S, type: ItemType)
             break;
         
         case ItemType.FREEZE:
+            if (player.invincible)
+            {
+                player.invincible = false;
+                player.invincibleDateTime = 0;
+            }
             player.frozen = true;
             player.frozenDateTime = Date.now();
+            break;
+
+        case ItemType.INVINCIBILITY:
+            if (player.frozen)
+            {
+                player.frozen = false;
+                player.frozenDateTime = 0;
+            }
+            player.invincible = true;
+            player.invincibleDateTime = Date.now();
             break;
 
         case ItemType.RESET:

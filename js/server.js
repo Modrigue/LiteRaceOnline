@@ -396,6 +396,8 @@ class Player_S extends LiteRay_S {
         this.markForItem = false;
         this.frozen = false;
         this.frozenDateTime = 0;
+        this.invincible = false;
+        this.invincibleDateTime = 0;
     }
     keyControl() {
         // if fast turn, handlded in extendsToNextPoint
@@ -1063,6 +1065,8 @@ function initPlayersPositions(room) {
         player.fastTurn = false;
         player.frozen = false;
         player.frozenDateTime = 0;
+        player.invincible = false;
+        player.invincibleDateTime = 0;
         // for fast test only
         if (FAST_TEST_ON) {
             const playersColors = ["#ffff00", "#4444ff", "#ff4444", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
@@ -1109,6 +1113,8 @@ function serverLoop() {
             let color = player.color;
             if (player.frozen)
                 color = "white";
+            else if (player.invincible)
+                color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
             io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
         }
     }
@@ -1137,6 +1143,14 @@ function gameLogic(room) {
             if (Date.now() - player.frozenDateTime >= delayFrozen * 1000) {
                 player.frozen = false;
                 player.frozenDateTime = 0;
+            }
+    // cancel invincibility if delay passed
+    const delayInvincibility = 5; // s
+    for (const [id, player] of game.players)
+        if (player.invincible)
+            if (Date.now() - player.invincibleDateTime >= delayInvincibility * 1000) {
+                player.invincible = false;
+                player.invincibleDateTime = 0;
             }
     // display scores if round finished
     if (roundFinished(room))
@@ -1226,15 +1240,16 @@ function checkPlayerCollisions(player, room = "") {
     const game = games.get(player.room);
     // players
     for (const [id, otherPlayer] of game.players) {
-        if (collideRay(player, otherPlayer)) {
-            player.markForDead = true;
-            player.killedBy = id;
-            //console.log(`PLAYER ${player.no} COLLISION RAY`);
-        }
+        if (!player.invincible)
+            if (collideRay(player, otherPlayer)) {
+                player.markForDead = true;
+                player.killedBy = id;
+                //console.log(`PLAYER ${player.no} COLLISION RAY`);
+            }
     }
     // stadium
     for (const wall of game.stadium) {
-        if (!player.markForDead)
+        if (!player.markForDead && !player.invincible)
             if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
                 player.markForDead = true;
                 player.killedBy = "WALL";
@@ -1243,7 +1258,7 @@ function checkPlayerCollisions(player, room = "") {
     }
     // obstacles
     for (const obstacle of game.obstacles) {
-        if (!player.markForDead)
+        if (!player.markForDead && !player.invincible)
             if (collideBox(player, obstacle)) {
                 player.markForDead = true;
                 player.killedBy = "WALL";
@@ -1557,7 +1572,7 @@ function generateItems(room) {
             // compute random type / scope
             const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
                 ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN, ItemType.FREEZE];
-            //const types: Array<ItemType> = [ItemType.FREEZE];
+            //const types: Array<ItemType> = [ItemType.INVINCIBILITY];
             item.type = getRandomElement(types);
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
@@ -1583,18 +1598,21 @@ function getNewItemPosition() {
 function geItemScopesGivenType(type) {
     let scopes = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
     switch (type) {
+        case ItemType.COMPRESSION:
+            scopes = [ItemScope.ALL];
+            break;
         case ItemType.FAST_TURN:
             scopes = [ItemScope.ALL, ItemScope.PLAYER];
             break;
-        case ItemType.COMPRESSION:
-            scopes = [ItemScope.ALL];
+        case ItemType.FREEZE:
+            scopes = [ItemScope.ENEMIES];
+            break;
+        case ItemType.INVINCIBILITY:
+            scopes = [ItemScope.PLAYER];
             break;
         case ItemType.RESET:
         case ItemType.RESET_REVERSE:
             scopes = [ItemScope.ALL, ItemScope.ENEMIES];
-            break;
-        case ItemType.FREEZE:
-            scopes = [ItemScope.ENEMIES];
             break;
         case ItemType.UNKNOWN:
             scopes = [ItemScope.UNKNOWN];
@@ -1660,8 +1678,20 @@ function applyItemEffectToPlayer(room, player, type) {
             player.fastTurn = true;
             break;
         case ItemType.FREEZE:
+            if (player.invincible) {
+                player.invincible = false;
+                player.invincibleDateTime = 0;
+            }
             player.frozen = true;
             player.frozenDateTime = Date.now();
+            break;
+        case ItemType.INVINCIBILITY:
+            if (player.frozen) {
+                player.frozen = false;
+                player.frozenDateTime = 0;
+            }
+            player.invincible = true;
+            player.invincibleDateTime = Date.now();
             break;
         case ItemType.RESET:
             {
