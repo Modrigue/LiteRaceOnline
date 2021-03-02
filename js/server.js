@@ -432,10 +432,11 @@ var ItemType;
     ItemType[ItemType["SPEED_DECREASE"] = 2] = "SPEED_DECREASE";
     ItemType[ItemType["COMPRESSION"] = 3] = "COMPRESSION";
     ItemType[ItemType["RESET"] = 4] = "RESET";
-    ItemType[ItemType["FREEZE"] = 5] = "FREEZE";
-    ItemType[ItemType["FAST_TURN"] = 6] = "FAST_TURN";
-    ItemType[ItemType["INVINCIBILITY"] = 7] = "INVINCIBILITY";
-    ItemType[ItemType["UNKNOWN"] = 8] = "UNKNOWN";
+    ItemType[ItemType["RESET_REVERSE"] = 5] = "RESET_REVERSE";
+    ItemType[ItemType["FREEZE"] = 6] = "FREEZE";
+    ItemType[ItemType["FAST_TURN"] = 7] = "FAST_TURN";
+    ItemType[ItemType["INVINCIBILITY"] = 8] = "INVINCIBILITY";
+    ItemType[ItemType["UNKNOWN"] = 9] = "UNKNOWN";
 })(ItemType || (ItemType = {}));
 ;
 class Item extends Disc_S {
@@ -1531,19 +1532,24 @@ function generateItems(room) {
     if (game.items.length == 0) {
         const percentAppear = 100 * Math.random();
         if (percentAppear >= 99) {
-            // compute random position, not nearby players' current positions
-            const x = 200; //1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
-            const y = 200; //1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
-            const item = new Item(x, y, 20);
+            const itemPos = getNewItemPosition();
+            const item = new Item(itemPos.x, itemPos.y, 20);
             // compute random type
-            const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION];
-            //const types: Array<ItemType> = [ItemType.COMPRESSION];
+            const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION, ItemType.RESET_REVERSE];
+            //const types: Array<ItemType> = [ItemType.FAST_TURN];
             item.type = getRandomElement(types);
             // compute (random?) scope given type
             let scopes = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
             switch (item.type) {
                 case ItemType.COMPRESSION:
                     scopes = [ItemScope.ALL];
+                    break;
+                case ItemType.RESET:
+                case ItemType.RESET_REVERSE:
+                    scopes = [ItemScope.ALL, ItemScope.ENEMIES];
+                    break;
+                case ItemType.UNKNOWN:
+                    scopes = [ItemScope.UNKNOWN];
                     break;
             }
             item.scope = getRandomElement(scopes);
@@ -1559,6 +1565,12 @@ function generateItems(room) {
             removeItem(room);
     }
 }
+// compute random item position, not nearby players' current positions
+function getNewItemPosition() {
+    let x = 200; //1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
+    let y = 200; //1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
+    return new Point2_S(x, y);
+}
 function removeItem(room) {
     if (!games.has(room))
         return;
@@ -1571,6 +1583,14 @@ function applyItemEffect(room, playerGotItem, item) {
     if (!games.has(room) && true)
         return;
     const game = games.get(room);
+    let scope = item.scope;
+    let type = item.type;
+    // specific items
+    // unknown: get random type and scope
+    if (item.type == ItemType.UNKNOWN) {
+        scope = getRandomElement([ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES]);
+        // type = 
+    }
     // compression: apply to all players
     if (item.type == ItemType.COMPRESSION) {
         if (!game.compressedBlocksInit) {
@@ -1578,20 +1598,20 @@ function applyItemEffect(room, playerGotItem, item) {
             return;
         }
     }
-    switch (item.scope) {
+    switch (scope) {
         case ItemScope.PLAYER:
-            applyItemEffectToPlayer(room, playerGotItem, item.type);
+            applyItemEffectToPlayer(room, playerGotItem, type);
             break;
         case ItemScope.ALL:
             for (const [id, player] of game.players)
-                applyItemEffectToPlayer(room, player, item.type);
+                applyItemEffectToPlayer(room, player, type);
             break;
         case ItemScope.ENEMIES:
             if (game.hasTeams) {
                 const team = playerGotItem.team;
                 for (const [id, player] of game.players)
                     if (player.team != team)
-                        applyItemEffectToPlayer(room, player, item.type);
+                        applyItemEffectToPlayer(room, player, type);
             }
             else
                 for (const [id, player] of game.players)
@@ -1611,6 +1631,24 @@ function applyItemEffectToPlayer(room, player, type) {
         case ItemType.SPEED_DECREASE:
             player.speed = Math.max(player.speed - 1, 1);
             break;
+        case ItemType.RESET:
+            {
+                const lastPoint = player.getLastPoint();
+                const dir = player.direction();
+                player.reset();
+                player.addPoint(lastPoint.x, lastPoint.y);
+                player.addPoint(lastPoint.x + dir.dirx, lastPoint.y + dir.diry);
+                break;
+            }
+        case ItemType.RESET_REVERSE:
+            {
+                const lastPoint = player.getLastPoint();
+                const dir = player.direction();
+                player.reset();
+                player.addPoint(lastPoint.x, lastPoint.y);
+                player.addPoint(lastPoint.x - dir.dirx, lastPoint.y - dir.diry);
+                break;
+            }
     }
 }
 function sendItems(room) {
@@ -1649,6 +1687,9 @@ function sendItems(room) {
                 break;
             case ItemType.RESET:
                 typeStr = "reset";
+                break;
+            case ItemType.RESET_REVERSE:
+                typeStr = "reset_reverse";
                 break;
             case ItemType.FREEZE:
                 typeStr = "freeze";

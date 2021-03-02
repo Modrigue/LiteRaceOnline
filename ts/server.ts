@@ -577,7 +577,7 @@ class Player_S extends LiteRay_S
 
 enum ItemScope { NONE, ALL, PLAYER, ENEMIES, UNKNOWN };
 enum ItemType { NONE, SPEED_INCREASE, SPEED_DECREASE, COMPRESSION,
-    RESET, FREEZE, FAST_TURN, INVINCIBILITY, UNKNOWN };
+    RESET, RESET_REVERSE, FREEZE, FAST_TURN, INVINCIBILITY, UNKNOWN };
 class Item extends Disc_S
 {
     scope = ItemScope.NONE;
@@ -1982,14 +1982,13 @@ function generateItems(room: string): void
         const percentAppear = 100*Math.random();
         if (percentAppear >= 99)
         {        
-            // compute random position, not nearby players' current positions
-            const x = 200; //1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
-            const y = 200; //1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
-            const item = new Item(x, y, 20);
+            
+            const itemPos = getNewItemPosition();
+            const item = new Item(itemPos.x, itemPos.y, 20);
 
             // compute random type
-            const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION];
-            //const types: Array<ItemType> = [ItemType.COMPRESSION];
+            const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION, ItemType.RESET_REVERSE];
+            //const types: Array<ItemType> = [ItemType.FAST_TURN];
             item.type = getRandomElement(types);
 
             // compute (random?) scope given type
@@ -1998,6 +1997,15 @@ function generateItems(room: string): void
             {
                 case ItemType.COMPRESSION:
                     scopes = [ItemScope.ALL];
+                    break;
+                
+                case ItemType.RESET:
+                case ItemType.RESET_REVERSE:
+                    scopes = [ItemScope.ALL, ItemScope.ENEMIES];
+                    break;
+                
+                case ItemType.UNKNOWN:
+                    scopes = [ItemScope.UNKNOWN];
                     break;
             }
 
@@ -2017,6 +2025,15 @@ function generateItems(room: string): void
     }
 }
 
+// compute random item position, not nearby players' current positions
+function getNewItemPosition(): Point2_S
+{
+    let x = 200; //1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
+    let y = 200; //1/16*STADIUM_H + 7/8*STADIUM_H*Math.random();
+
+    return new Point2_S(x, y);
+}
+
 function removeItem(room: string): void
 {
     if (!games.has(room))
@@ -2034,6 +2051,19 @@ function applyItemEffect(room: string, playerGotItem: Player_S, item: Item): voi
         return;
     const game = <Game>games.get(room);
 
+    let scope = item.scope;
+    let type = item.type;
+
+    // specific items
+
+    // unknown: get random type and scope
+    if (item.type == ItemType.UNKNOWN)
+    {
+        scope = getRandomElement([ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES]);
+        // type = 
+    }
+
+
     // compression: apply to all players
     if (item.type == ItemType.COMPRESSION)
     {
@@ -2044,15 +2074,15 @@ function applyItemEffect(room: string, playerGotItem: Player_S, item: Item): voi
         }
     }
 
-    switch(item.scope)
+    switch(scope)
     {
         case ItemScope.PLAYER:
-            applyItemEffectToPlayer(room, playerGotItem, item.type);
+            applyItemEffectToPlayer(room, playerGotItem, type);
             break;
 
         case ItemScope.ALL:
             for (const [id, player] of game.players)
-                applyItemEffectToPlayer(room, player, item.type);   
+                applyItemEffectToPlayer(room, player, type);   
             break;
 
         case ItemScope.ENEMIES:
@@ -2061,7 +2091,7 @@ function applyItemEffect(room: string, playerGotItem: Player_S, item: Item): voi
                 const team : string = playerGotItem.team;
                 for (const [id, player] of game.players)
                     if (player.team != team)
-                        applyItemEffectToPlayer(room, player, item.type);
+                        applyItemEffectToPlayer(room, player, type);
 
             }
             else
@@ -2087,6 +2117,26 @@ function applyItemEffectToPlayer(room: string, player: Player_S, type: ItemType)
         case ItemType.SPEED_DECREASE:
             player.speed = Math.max(player.speed - 1, 1);
             break;
+
+        case ItemType.RESET:
+        {
+            const lastPoint = player.getLastPoint();
+            const dir = player.direction();
+            player.reset();
+            player.addPoint(lastPoint.x, lastPoint.y);
+            player.addPoint(lastPoint.x + dir.dirx, lastPoint.y + dir.diry);
+            break;
+        }
+
+        case ItemType.RESET_REVERSE:
+        {
+            const lastPoint = player.getLastPoint();
+            const dir = player.direction();
+            player.reset();
+            player.addPoint(lastPoint.x, lastPoint.y);
+            player.addPoint(lastPoint.x - dir.dirx, lastPoint.y - dir.diry);
+            break;
+        }
     }
 }
 
@@ -2138,6 +2188,10 @@ function sendItems(room: string): void
                
             case ItemType.RESET:
                 typeStr = "reset";
+                break;
+
+            case ItemType.RESET_REVERSE:
+                typeStr = "reset_reverse";
                 break;
               
             case ItemType.FREEZE:
