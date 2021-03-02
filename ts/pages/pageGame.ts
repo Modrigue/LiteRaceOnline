@@ -12,7 +12,9 @@ socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds:
 
     canvas.focus();
     displayStatus = DisplayStatus.PREPARE;
-    imgPrepareCountdown.src = `./img/${params.countdown}.png`;
+
+    if (params.countdown > 0)
+        imgPrepareCountdown.src = `./img/${params.countdown}.png`;
 
     if (params.initDisplay)
         requestAnimationFrame(renderOnly);
