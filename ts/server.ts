@@ -106,6 +106,7 @@ class LiteRay_S
     // player controls
     up: boolean; down: boolean; left: boolean; right: boolean;
     action: boolean;
+    fastTurn: boolean;
 
     constructor()
     {
@@ -117,6 +118,7 @@ class LiteRay_S
         this.left = false;
         this.right = false;
         this.action = false;
+        this.fastTurn = false;
 
         this.alive = false;
     }
@@ -156,28 +158,28 @@ class LiteRay_S
 
     extendsToNextPoint(): void
     {
-        // disabled: diagonals too easy -> future bonus?
-        // apply direction change if key control
-        // if (this.up || this.down || this.left || this.right)
-        // {
-        //     const { dirx, diry }: { dirx: number, diry: number } = this.direction();
+        // fast turn: apply direct direction change if key control
+        if (this.fastTurn)
+        if (this.up || this.down || this.left || this.right)
+        {
+            const { dirx, diry }: { dirx: number, diry: number } = this.direction();
 
-        //     // get last segment
-        //     const nbPoints = this._points.length;
-        //     const pointLast = this._points[nbPoints - 1];
+            // get last segment
+            const nbPoints = this._points.length;
+            const pointLast = this._points[nbPoints - 1];
     
-        //     if (this.up && diry == 0)
-        //         this.addPoint(pointLast.x, pointLast.y - this.speed);
-        //     else if (this.down && diry == 0)
-        //         this.addPoint(pointLast.x, pointLast.y + this.speed);
-        //     else if (this.left && dirx == 0)
-        //         this.addPoint(pointLast.x - this.speed, pointLast.y);
-        //     else if (this.right && dirx == 0)
-        //         this.addPoint(pointLast.x + this.speed, pointLast.y);
+            if (this.up && diry == 0)
+                this.addPoint(pointLast.x, pointLast.y - this.speed);
+            else if (this.down && diry == 0)
+                this.addPoint(pointLast.x, pointLast.y + this.speed);
+            else if (this.left && dirx == 0)
+                this.addPoint(pointLast.x - this.speed, pointLast.y);
+            else if (this.right && dirx == 0)
+                this.addPoint(pointLast.x + this.speed, pointLast.y);
 
-        //     this.up = this.down = this.left = this.right = false;
-        //     return;
-        // }
+            this.up = this.down = this.left = this.right = false;
+            return;
+        }
 
         if (!this._points || this._points.length == 0)
             return;
@@ -551,6 +553,10 @@ class Player_S extends LiteRay_S
 
     keyControl()
     {
+        // if fast turn, handlded in extendsToNextPoint
+        if (this.fastTurn)
+            return;
+
         const { dirx, diry }: { dirx: number, diry: number } = this.direction();
 
         // get last segment
@@ -1357,6 +1363,7 @@ function initPlayersPositions(room: string): void
         player.markForDead = false;
         player.markForItem = false;
         player.killedBy = "";
+        player.fastTurn = false;
         player.nbPointsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
 
@@ -1987,7 +1994,8 @@ function generateItems(room: string): void
             const item = new Item(itemPos.x, itemPos.y, 20);
 
             // compute random type
-            const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION, ItemType.RESET_REVERSE];
+            const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
+                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN];
             //const types: Array<ItemType> = [ItemType.FAST_TURN];
             item.type = getRandomElement(types);
 
@@ -1995,6 +2003,10 @@ function generateItems(room: string): void
             let scopes: Array<ItemScope> = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
             switch(item.type)
             {
+                case ItemType.FAST_TURN:
+                    scopes = [ItemScope.ALL, ItemScope.PLAYER];
+                    break;
+
                 case ItemType.COMPRESSION:
                     scopes = [ItemScope.ALL];
                     break;
@@ -2110,12 +2122,8 @@ function applyItemEffectToPlayer(room: string, player: Player_S, type: ItemType)
 
     switch(type)
     {
-        case ItemType.SPEED_INCREASE:
-            player.speed++;
-            break;
-
-        case ItemType.SPEED_DECREASE:
-            player.speed = Math.max(player.speed - 1, 1);
+        case ItemType.FAST_TURN:
+            player.fastTurn = true;
             break;
 
         case ItemType.RESET:
@@ -2137,6 +2145,14 @@ function applyItemEffectToPlayer(room: string, player: Player_S, type: ItemType)
             player.addPoint(lastPoint.x - dir.dirx, lastPoint.y - dir.diry);
             break;
         }
+
+        case ItemType.SPEED_DECREASE:
+            player.speed = Math.max(player.speed - 1, 1);
+            break;
+
+        case ItemType.SPEED_INCREASE:
+            player.speed++;
+            break;
     }
 }
 
