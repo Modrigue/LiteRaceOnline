@@ -799,6 +799,8 @@ function playNewGame(room) {
                 for (const [id, player] of game.players) {
                     player.score = player.nbPointsInRound = 0;
                     player.killedBy = "";
+                    if (!game.hasTeams)
+                        player.team = ""; // secure
                     playerParams.push({
                         id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
                         x2: player.points[1].x, y2: player.points[1].y, color: player.color
