@@ -1578,7 +1578,7 @@ function physicsLoop(room: string): void
             player.alive = false;
             player.markForDead = false;
 
-            io.to(room).emit('collision', {id: id});
+            //io.to(room).emit('collision', {id: id});
         }
 
         if (player.markForItem && game.items.length > 0)
