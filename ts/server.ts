@@ -624,8 +624,9 @@ class Game
     stadiumId: MAZE = MAZE.NONE;
     obstacles: Array<Box_S> = new Array<Box_S>();
 
-    compressedBlocksInit: boolean = false;
-    compressedBlocksDateTime: number = 0;
+    compressionInit: boolean = false;
+    compressionSpeed: number = 0;
+    compressionStartDateTime: number = 0;
 
     items = new Array<Item>();
     itemAppearedDateTime: number = 0;
@@ -1463,11 +1464,19 @@ function gameLogic(room: string): void
     generateItems(room);
 
     // update compression if started
-    if (game.compressedBlocksInit)
+    if (game.compressionInit)
         updateCompression(room);
 
-    // init compression if delay passed
-    if ((game.roundNo + 2) % 5 == 0)
+    // init compression if delay passed / maze
+    if (((game.roundNo + 5) % 20 == 0) && game.stadiumId == MAZE.MAZE_1)
+    {
+        const delayCompression = 1.75; // s
+        const curDate = Date.now();
+        const roundElapsedTime = curDate - game.roundStartDateTime; // ms
+        if (roundElapsedTime > delayCompression * 1000)
+            initCompression(room, 1.25);
+    }
+    else if ((game.roundNo + 2) % 5 == 0)
     {
         const delayCompression = 3; // s
         const curDate = Date.now();
@@ -1817,13 +1826,14 @@ function newStadium(room: string): void
     game.stadium = new Array<Segment_S>();
     game.obstacles = new Array<Box_S>();
     game.items = new Array<Item>();
-    game.compressedBlocksInit = false;
+    game.compressionInit = false;
 
     let newStadiumId = MAZE.NONE;
     if (game.roundNo % 10 == 0)
         newStadiumId = MAZE.MAZE_2;
     else if (game.roundNo % 5 == 0)
         newStadiumId = MAZE.MAZE_1;
+    
     game.stadiumId = newStadiumId;
 
     switch (game.stadiumId)
@@ -2169,7 +2179,7 @@ function applyItemEffect(room: string, playerGotItem: Player_S, item: Item): voi
     // compression: apply to all players
     if (type == ItemType.COMPRESSION)
     {
-        if (!game.compressedBlocksInit)
+        if (!game.compressionInit)
         {
             initCompression(room);
             return;
@@ -2344,13 +2354,13 @@ function sendItems(room: string): void
     io.to(room).emit('items', params);
 }
 
-function initCompression(room: string): void
+function initCompression(room: string, speed: number = 2): void
 {
     if (!games.has(room))
         return;
     const game = <Game>games.get(room);
     
-    if (!game.compressedBlocksInit)
+    if (!game.compressionInit)
     {
         // create blocks
         let obstacles = new Array<Box_S>();
@@ -2363,8 +2373,9 @@ function initCompression(room: string): void
         obstacles.push(new Box_S(STADIUM_W, 0, STADIUM_W, STADIUM_H, color));
         game.obstacles = obstacles;
 
-        game.compressedBlocksInit = true;
-        game.compressedBlocksDateTime = Date.now();        
+        game.compressionInit = true;
+        game.compressionSpeed = speed;
+        game.compressionStartDateTime = Date.now();        
     }
 
     sendObstacles(room);
@@ -2376,13 +2387,12 @@ function updateCompression(room: string): void
         return;
     const game = <Game>games.get(room);
     
-    if (!game.compressedBlocksInit)
+    if (!game.compressionInit)
         return;
     
     // update blocks
-    const speedRef = 2;
-    const speed = Math.round(speedRef * Math.min(STADIUM_H, STADIUM_H) / 100); // pixels / s
-    const elapsedTime = Date.now() - game.compressedBlocksDateTime;
+    const speed = Math.round(game.compressionSpeed * Math.min(STADIUM_H, STADIUM_H) / 100); // pixels / s
+    const elapsedTime = Date.now() - game.compressionStartDateTime;
     if (game.obstacles.length >= 4)
     {
         game.obstacles[0].points[1].y = Math.floor(speed * elapsedTime / 1000);
