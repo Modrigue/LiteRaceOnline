@@ -112,4 +112,10 @@ socket.on('gameOverTeams', (params) => {
         winners.push(team);
     displayStatus = DisplayStatus.GAME_OVER;
 });
+// event sounds
+let soundCollision;
+socket.on('collision', (params) => {
+    const volume = (params.id == selfID) ? 1 : 0.5;
+    playAudio(soundCollision, volume);
+});
 //# sourceMappingURL=client.js.map

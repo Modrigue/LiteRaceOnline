@@ -45,6 +45,12 @@ window.onload = function()
     buttonPlay.addEventListener('click', onPlay);
 }
 
+// initialize sounds
+window.addEventListener("DOMContentLoaded", (event: Event) => {
+    
+    soundCollision = <HTMLAudioElement>document.getElementById('soundCollision');
+});
+
 function updateWelcomeGUI()
 {
     const userName = <HTMLInputElement>document.getElementById('userName');

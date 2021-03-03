@@ -35,6 +35,10 @@ window.onload = function () {
     const buttonPlay = document.getElementById('buttonPlay');
     buttonPlay.addEventListener('click', onPlay);
 };
+// initialize sounds
+window.addEventListener("DOMContentLoaded", (event) => {
+    soundCollision = document.getElementById('soundCollision');
+});
 function updateWelcomeGUI() {
     const userName = document.getElementById('userName');
     const nameEmpty = (userName.value === null || userName.value.length == 0);

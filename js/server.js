@@ -1218,6 +1218,7 @@ function physicsLoop(room) {
             player.applyCollision();
             player.alive = false;
             player.markForDead = false;
+            io.to(room).emit('collision', { id: id });
         }
         if (player.markForItem && game.items.length > 0) {
             const item = game.items[0];

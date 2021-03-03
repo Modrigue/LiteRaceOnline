@@ -140,3 +140,14 @@ socket.on('gameOverTeams', (params: Array<string>) => {
 
     displayStatus = DisplayStatus.GAME_OVER;
 });
+
+// event sounds
+
+let soundCollision: HTMLAudioElement;
+
+socket.on('collision', (params: {id: string}) => {
+
+    const volume = (params.id == selfID) ? 1 : 0.5;
+    playAudio(soundCollision, volume);
+});
+
