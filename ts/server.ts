@@ -621,8 +621,7 @@ class Game
 
     mode: GameMode = GameMode.BODYCOUNT;
     stadium: Array<Segment_S> = new Array<Segment_S>();
-    stadiumId: string = "0";
-
+    stadiumId: MAZE = MAZE.NONE;
     obstacles: Array<Box_S> = new Array<Box_S>();
 
     compressedBlocksInit: boolean = false;
@@ -640,6 +639,8 @@ class Game
     status: GameStatus = GameStatus.NONE;
     displayStatus: DisplayStatus_S = DisplayStatus_S.NONE;
 }
+
+enum MAZE { NONE, MAZE_1, MAZE_2 };
 
 let games = new Map<string, Game>();
 let clientNo: number = 0;
@@ -1090,7 +1091,7 @@ function initPlayersPositions(room: string): void
     const percent = Math.floor(100 * Math.random());
     const positioning: number = Math.floor(percent / 25) + 1;
 
-    if (game.stadiumId == "0")  // vanilla stadium
+    if (game.stadiumId == MAZE.NONE)  // vanilla stadium
     {
         switch (positioning)
         {
@@ -1243,7 +1244,7 @@ function initPlayersPositions(room: string): void
     {
         switch(game.stadiumId)
         {
-            case "1":
+            case MAZE.MAZE_1:
                 {
                     const dy = 4;
                     const dPosy = Math.round(STADIUM_H/32); 
@@ -1275,7 +1276,7 @@ function initPlayersPositions(room: string): void
                 }
                 break;
             
-            case "2":
+            case MAZE.MAZE_2:
                 {
                     let xLeft = 0;
                     let yTop = 0;
@@ -1411,11 +1412,11 @@ function initPlayersSpeeds(room: string): void
     // mazes specific speeds
     switch(game.stadiumId)
     {
-        case "1":
+        case MAZE.MAZE_1:
             speed = (percent >= 50) ? 3 : 2;
             break;
 
-        case "2":
+        case MAZE.MAZE_2:
             speed = (percent >= 50) ? 2 : 1;
             break;
     }
@@ -1818,16 +1819,16 @@ function newStadium(room: string): void
     game.items = new Array<Item>();
     game.compressedBlocksInit = false;
 
-    let newStadiumId = "0";
+    let newStadiumId = MAZE.NONE;
     if (game.roundNo % 10 == 0)
-        newStadiumId = "2";
+        newStadiumId = MAZE.MAZE_2;
     else if (game.roundNo % 5 == 0)
-        newStadiumId = "1";
+        newStadiumId = MAZE.MAZE_1;
     game.stadiumId = newStadiumId;
 
     switch (game.stadiumId)
     {
-        case "0":   // vanilla
+        case MAZE.NONE:   // vanilla
             {
                 const percentWallV = Math.floor(100 * Math.random());
                 const percentWallH = Math.floor(100 * Math.random());
@@ -1852,7 +1853,7 @@ function newStadium(room: string): void
             }
             break;
 
-        case "1":   // maze 1
+        case MAZE.MAZE_1:
             {   
                 putWallsAround(game);
                 const color = "LightGrey";
@@ -1893,7 +1894,7 @@ function newStadium(room: string): void
             }
             break;
         
-        case "2":   // maze 2
+        case MAZE.MAZE_2:
             {   
                 putWallsAround(game);
                 const color = "LightGrey";

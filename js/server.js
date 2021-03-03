@@ -475,7 +475,7 @@ class Game {
         this.hasTeams = false;
         this.mode = GameMode.BODYCOUNT;
         this.stadium = new Array();
-        this.stadiumId = "0";
+        this.stadiumId = MAZE.NONE;
         this.obstacles = new Array();
         this.compressedBlocksInit = false;
         this.compressedBlocksDateTime = 0;
@@ -490,6 +490,13 @@ class Game {
         this.displayStatus = DisplayStatus_S.NONE;
     }
 }
+var MAZE;
+(function (MAZE) {
+    MAZE[MAZE["NONE"] = 0] = "NONE";
+    MAZE[MAZE["MAZE_1"] = 1] = "MAZE_1";
+    MAZE[MAZE["MAZE_2"] = 2] = "MAZE_2";
+})(MAZE || (MAZE = {}));
+;
 let games = new Map();
 let clientNo = 0;
 // for fast test only
@@ -821,7 +828,7 @@ function initPlayersPositions(room) {
     // TODO: handle teams?
     const percent = Math.floor(100 * Math.random());
     const positioning = Math.floor(percent / 25) + 1;
-    if (game.stadiumId == "0") // vanilla stadium
+    if (game.stadiumId == MAZE.NONE) // vanilla stadium
      {
         switch (positioning) {
             case 1: // face to face
@@ -951,7 +958,7 @@ function initPlayersPositions(room) {
     else // predefined stadiums
      {
         switch (game.stadiumId) {
-            case "1":
+            case MAZE.MAZE_1:
                 {
                     const dy = 4;
                     const dPosy = Math.round(STADIUM_H / 32);
@@ -977,7 +984,7 @@ function initPlayersPositions(room) {
                     }
                 }
                 break;
-            case "2":
+            case MAZE.MAZE_2:
                 {
                     let xLeft = 0;
                     let yTop = 0;
@@ -1092,10 +1099,10 @@ function initPlayersSpeeds(room) {
         speed = 2;
     // mazes specific speeds
     switch (game.stadiumId) {
-        case "1":
+        case MAZE.MAZE_1:
             speed = (percent >= 50) ? 3 : 2;
             break;
-        case "2":
+        case MAZE.MAZE_2:
             speed = (percent >= 50) ? 2 : 1;
             break;
     }
@@ -1401,14 +1408,14 @@ function newStadium(room) {
     game.obstacles = new Array();
     game.items = new Array();
     game.compressedBlocksInit = false;
-    let newStadiumId = "0";
+    let newStadiumId = MAZE.NONE;
     if (game.roundNo % 10 == 0)
-        newStadiumId = "2";
+        newStadiumId = MAZE.MAZE_2;
     else if (game.roundNo % 5 == 0)
-        newStadiumId = "1";
+        newStadiumId = MAZE.MAZE_1;
     game.stadiumId = newStadiumId;
     switch (game.stadiumId) {
-        case "0": // vanilla
+        case MAZE.NONE: // vanilla
             {
                 const percentWallV = Math.floor(100 * Math.random());
                 const percentWallH = Math.floor(100 * Math.random());
@@ -1429,7 +1436,7 @@ function newStadium(room) {
                 }
             }
             break;
-        case "1": // maze 1
+        case MAZE.MAZE_1:
             {
                 putWallsAround(game);
                 const color = "LightGrey";
@@ -1463,7 +1470,7 @@ function newStadium(room) {
                 game.stadium.push(new Segment_S(7 * dx, STADIUM_H - 7 * dy, STADIUM_W - 7 * dx, STADIUM_H - 7 * dy, color));
             }
             break;
-        case "2": // maze 2
+        case MAZE.MAZE_2:
             {
                 putWallsAround(game);
                 const color = "LightGrey";
