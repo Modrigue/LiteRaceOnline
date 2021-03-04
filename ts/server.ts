@@ -1471,22 +1471,27 @@ function gameLogic(room: string): void
         updateCompression(room);
 
     // init compression if delay passed / maze
+    const delayCompressionMax = 90; // s
+    const curDate = Date.now();
+    const roundElapsedTime = curDate - game.roundStartDateTime; // ms
     if (((game.roundNo + 5) % 20 == 0) && game.stadiumId == MAZE.MAZE_1)
     {
         const delayCompression = 1.75; // s
-        const curDate = Date.now();
-        const roundElapsedTime = curDate - game.roundStartDateTime; // ms
         if (roundElapsedTime > delayCompression * 1000)
             initCompression(room, 1.25);
     }
     else if ((game.roundNo + 2) % 5 == 0)
     {
         const delayCompression = 3; // s
-        const curDate = Date.now();
-        const roundElapsedTime = curDate - game.roundStartDateTime; // ms
         if (roundElapsedTime > delayCompression * 1000)
             initCompression(room);
     }
+    else if (!game.compressionInit) // force compression after max. delay
+    {
+        if (roundElapsedTime > delayCompressionMax * 1000)
+            initCompression(room);
+    }
+    
 
     // un-freeze frozen players if delay passed
     const delayFrozen = 4; // s
