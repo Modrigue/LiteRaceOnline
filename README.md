@@ -8,3 +8,5 @@ $ npm install typescript
 $ npm install
 $ npm start
 ```
+
+_(Configure port in server.js)_
