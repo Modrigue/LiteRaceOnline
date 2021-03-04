@@ -398,10 +398,21 @@ class Player_S extends LiteRay_S {
         this.frozenDateTime = 0;
         this.invincible = false;
         this.invincibleDateTime = 0;
+        this.jumping = false;
+        this.jumpingDateTime = 0;
+        this.jumpingPoint = new Point2_S(-Infinity, -Infinity);
+        this.jumpingDirection = { dirx: 0, diry: 0 };
+        this.itemsTaken = new Array();
+    }
+    jumpToNextPoint() {
+        if (this.jumpingPoint.x === -Infinity || this.jumpingPoint.y === -Infinity)
+            return;
+        this.jumpingPoint.x += this.speed * this.jumpingDirection.dirx;
+        this.jumpingPoint.y += this.speed * this.jumpingDirection.diry;
     }
     keyControl() {
         // if fast turn, handlded in extendsToNextPoint
-        if (this.fastTurn)
+        if (this.fastTurn || this.jumping)
             return;
         const { dirx, diry } = this.direction();
         // get last segment
@@ -421,6 +432,9 @@ class Player_S extends LiteRay_S {
         // check collision at direction changed
         if (hasChangedDirection)
             checkPlayerCollisions(this);
+        // apply item action
+        if (this.action)
+            applyPlayerItemAction(this.room, this);
     }
 }
 var ItemScope;
@@ -443,7 +457,8 @@ var ItemType;
     ItemType[ItemType["FREEZE"] = 6] = "FREEZE";
     ItemType[ItemType["FAST_TURN"] = 7] = "FAST_TURN";
     ItemType[ItemType["INVINCIBILITY"] = 8] = "INVINCIBILITY";
-    ItemType[ItemType["UNKNOWN"] = 9] = "UNKNOWN";
+    ItemType[ItemType["JUMP"] = 9] = "JUMP";
+    ItemType[ItemType["UNKNOWN"] = 10] = "UNKNOWN";
 })(ItemType || (ItemType = {}));
 ;
 class Item extends Disc_S {
@@ -717,6 +732,12 @@ function connected(socket) {
         const room = getPlayerRoomFromId(socket.id);
         if (!games.has(room) || !player)
             return;
+        // no input if player jumping
+        if (player.jumping) {
+            player.left = player.up = player.right = player.down = false;
+            player.action = false;
+            return;
+        }
         player.left = data.left;
         player.up = data.up;
         player.right = data.right;
@@ -799,6 +820,7 @@ function playNewGame(room) {
                 for (const [id, player] of game.players) {
                     player.score = player.nbPointsInRound = 0;
                     player.killedBy = "";
+                    player.itemsTaken = new Array();
                     if (!game.hasTeams)
                         player.team = ""; // secure
                     playerParams.push({
@@ -1080,6 +1102,9 @@ function initPlayersPositions(room) {
         player.frozenDateTime = 0;
         player.invincible = false;
         player.invincibleDateTime = 0;
+        player.jumping = false;
+        player.jumpingDateTime = 0;
+        player.itemsTaken = new Array();
         // for fast test only
         if (FAST_TEST_ON) {
             const playersColors = ["#ffff00", "#4444ff", "#ff4444", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
@@ -1176,6 +1201,21 @@ function gameLogic(room) {
                 player.invincible = false;
                 player.invincibleDateTime = 0;
             }
+    // finish jump if delay passed
+    const delayJump = 0.5; // s
+    for (const [id, player] of game.players)
+        if (player.jumping)
+            if (Date.now() - player.jumpingDateTime >= delayJump * 1000) {
+                // landing
+                player.addPoint(player.jumpingPoint.x, player.jumpingPoint.y);
+                player.addPoint(player.jumpingPoint.x + player.speed * player.jumpingDirection.dirx, player.jumpingPoint.y + player.speed * player.jumpingDirection.diry);
+                // reset jump properties
+                player.jumping = false;
+                player.jumpingDateTime = 0;
+                player.jumpingDirection = { dirx: 0, diry: 0 };
+                player.jumpingPoint.x = -Infinity;
+                player.jumpingPoint.y = -Infinity;
+            }
     // display scores if round finished
     if (roundFinished(room))
         scoring(room);
@@ -1208,10 +1248,12 @@ function physicsLoop(room) {
         return;
     const game = games.get(room);
     //console.log(room, game.players);
-    // extend to next point
+    // extend / jump to next point
     game.players.forEach((player) => {
-        if (player.alive && !player.frozen)
+        if (player.alive && !player.frozen && !player.jumping)
             player.extendsToNextPoint();
+        else if (player.alive && player.jumping)
+            player.jumpToNextPoint();
     });
     // check for collisions
     game.players.forEach((player) => {
@@ -1243,7 +1285,7 @@ function physicsLoop(room) {
         }
         if (player.markForItem && game.items.length > 0) {
             const item = game.items[0];
-            applyItemEffect(room, player, item);
+            applyItemTaken(room, player, item);
             itemTaken = true;
             player.markForItem = false;
         }
@@ -1263,6 +1305,9 @@ function checkPlayerCollisions(player, room = "") {
     if (!games.has(player.room))
         return;
     const game = games.get(player.room);
+    // no collisions / items taken if jumping
+    if (player.jumping)
+        return;
     // players
     for (const [id, otherPlayer] of game.players) {
         if (!player.invincible)
@@ -1600,7 +1645,7 @@ function generateItems(room) {
             // compute random type / scope
             const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
                 ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN,
-                ItemType.FREEZE, ItemType.INVINCIBILITY, ItemType.UNKNOWN];
+                ItemType.FREEZE, ItemType.INVINCIBILITY, ItemType.JUMP, ItemType.UNKNOWN];
             item.type = getRandomElement(types);
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
@@ -1637,6 +1682,9 @@ function getNewItemPosition(room) {
         if (positionOk)
             break;
     }
+    // for tests only
+    //x = 200;
+    //y = 200;
     return new Point2_S(x, y);
 }
 // compute (random?) scope given type
@@ -1654,6 +1702,9 @@ function geItemScopesGivenType(type) {
             break;
         case ItemType.INVINCIBILITY:
             scopes = [ItemScope.PLAYER];
+            break;
+        case ItemType.JUMP:
+            scopes = [ItemScope.PLAYER, ItemScope.ALL];
             break;
         case ItemType.RESET:
         case ItemType.RESET_REVERSE:
@@ -1673,7 +1724,7 @@ function removeItem(room) {
     game.itemAppearedDateTime = 0;
     sendItems(room);
 }
-function applyItemEffect(room, playerGotItem, item) {
+function applyItemTaken(room, playerGotItem, item) {
     if (!games.has(room) && true)
         return;
     const game = games.get(room);
@@ -1688,37 +1739,37 @@ function applyItemEffect(room, playerGotItem, item) {
             ItemType.FREEZE, ItemType.INVINCIBILITY];
         type = getRandomElement(types);
     }
-    // compression: apply to all players
-    if (type == ItemType.COMPRESSION) {
-        if (!game.compressionInit) {
-            initCompression(room);
+    // specific items
+    switch (type) {
+        case ItemType.COMPRESSION:
+            if (!game.compressionInit)
+                initCompression(room);
             return;
-        }
     }
     // apply item effect given scope
     switch (scope) {
         case ItemScope.PLAYER:
-            applyItemEffectToPlayer(room, playerGotItem, type);
+            applyItemTakenToPlayer(room, playerGotItem, type);
             break;
         case ItemScope.ALL:
             for (const [id, player] of game.players)
-                applyItemEffectToPlayer(room, player, type);
+                applyItemTakenToPlayer(room, player, type);
             break;
         case ItemScope.ENEMIES:
             if (game.hasTeams) {
                 const team = playerGotItem.team;
                 for (const [id, player] of game.players)
                     if (player.team != team)
-                        applyItemEffectToPlayer(room, player, type);
+                        applyItemTakenToPlayer(room, player, type);
             }
             else
                 for (const [id, player] of game.players)
                     if (player !== playerGotItem)
-                        applyItemEffectToPlayer(room, player, item.type);
+                        applyItemTakenToPlayer(room, player, item.type);
             break;
     }
 }
-function applyItemEffectToPlayer(room, player, type) {
+function applyItemTakenToPlayer(room, player, type) {
     if (!games.has(room) && true)
         return;
     const game = games.get(room);
@@ -1741,6 +1792,9 @@ function applyItemEffectToPlayer(room, player, type) {
             }
             player.invincible = true;
             player.invincibleDateTime = Date.now();
+            break;
+        case ItemType.JUMP:
+            player.itemsTaken.push(ItemType.JUMP);
             break;
         case ItemType.RESET:
             {
@@ -1765,6 +1819,25 @@ function applyItemEffectToPlayer(room, player, type) {
             break;
         case ItemType.SPEED_INCREASE:
             player.speed++;
+            break;
+    }
+}
+function applyPlayerItemAction(room, player) {
+    if (!games.has(room) && true)
+        return;
+    const game = games.get(room);
+    if (player.itemsTaken === null || player.itemsTaken.length == 0)
+        return;
+    const type = player.itemsTaken.pop();
+    switch (type) {
+        case ItemType.JUMP:
+            const lastPoint = player.getLastPoint();
+            player.jumpingPoint.x = lastPoint.x;
+            player.jumpingPoint.y = lastPoint.y;
+            player.jumpingDirection = player.direction();
+            player.addPoint(Infinity, Infinity); // hole
+            player.jumpingDateTime = Date.now();
+            player.jumping = true;
             break;
     }
 }
@@ -1816,6 +1889,9 @@ function sendItems(room) {
                 break;
             case ItemType.INVINCIBILITY:
                 typeStr = "invincibility";
+                break;
+            case ItemType.JUMP:
+                typeStr = "jump";
                 break;
             case ItemType.UNKNOWN:
                 typeStr = "unknown";
