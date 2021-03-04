@@ -10,7 +10,7 @@ socket.on('prepareGame', (params) => {
     canvas.focus();
     displayStatus = DisplayStatus.PREPARE;
     if (params.countdown > 0)
-        imgPrepareCountdown.src = `./img/${params.countdown}.png`;
+        imgPrepareCountdown.src = `./img/texts/${params.countdown}.png`;
     if (params.initDisplay)
         requestAnimationFrame(renderOnly);
 });

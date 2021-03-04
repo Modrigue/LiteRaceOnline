@@ -7,9 +7,9 @@ const imgPrepare: HTMLImageElement = new Image();
 let imgPrepareCountdown: HTMLImageElement = new Image();
 const imgScores: HTMLImageElement = new Image();
 const imgGameOver: HTMLImageElement = new Image();
-imgPrepare.src = "./img/prepare_to_race.png";
-imgScores.src = "./img/scores.png";
-imgGameOver.src = "./img/game_over.png";
+imgPrepare.src = "./img/texts/prepare_to_race.png";
+imgScores.src = "./img/texts/scores.png";
+imgGameOver.src = "./img/texts/game_over.png";
 
 let socket: any;
 if (DEPLOY_CLIENT)
@@ -98,8 +98,8 @@ socket.on('items', (params: Array<{x: number, y: number, scope: string, type: st
         const item = new Disc(data.x, data.y, 20);
         const imgScope: HTMLImageElement = new Image();
         const imgType: HTMLImageElement = new Image();
-        imgScope.src = `./img/item_scope_${data.scope}.png`;
-        imgType.src = `./img/item_type_${data.type}.png`;
+        imgScope.src = `./img/items/scopes/item_scope_${data.scope}.png`;
+        imgType.src = `./img/items/types/item_type_${data.type}.png`;
         item.images.push(imgScope);
         item.images.push(imgType);
         ITEMS.push(item);

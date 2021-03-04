@@ -6,9 +6,9 @@ const imgPrepare = new Image();
 let imgPrepareCountdown = new Image();
 const imgScores = new Image();
 const imgGameOver = new Image();
-imgPrepare.src = "./img/prepare_to_race.png";
-imgScores.src = "./img/scores.png";
-imgGameOver.src = "./img/game_over.png";
+imgPrepare.src = "./img/texts/prepare_to_race.png";
+imgScores.src = "./img/texts/scores.png";
+imgGameOver.src = "./img/texts/game_over.png";
 let socket;
 if (DEPLOY_CLIENT)
     socket = io.connect();
@@ -78,8 +78,8 @@ socket.on('items', (params) => {
         const item = new Disc(data.x, data.y, 20);
         const imgScope = new Image();
         const imgType = new Image();
-        imgScope.src = `./img/item_scope_${data.scope}.png`;
-        imgType.src = `./img/item_type_${data.type}.png`;
+        imgScope.src = `./img/items/scopes/item_scope_${data.scope}.png`;
+        imgType.src = `./img/items/types/item_type_${data.type}.png`;
         item.images.push(imgScope);
         item.images.push(imgType);
         ITEMS.push(item);
