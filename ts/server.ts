@@ -562,6 +562,9 @@ class Player_S extends LiteRay_S
     jumpingPoint: Point2_S = new Point2_S(-Infinity, -Infinity);
     jumpingDirection = { dirx: 0, diry: 0 };
 
+    boosting: boolean = false;
+    boostingDateTime: number = 0;
+
     itemsTaken = new Array<ItemType>();
 
     jumpToNextPoint(): void
@@ -603,13 +606,17 @@ class Player_S extends LiteRay_S
 
         // apply item action
         if (this.action)
+        {
             applyPlayerItemAction(this.room, this);
+            this.action = false;
+        }
     }
 }
 
 enum ItemScope { NONE, ALL, PLAYER, ENEMIES, UNKNOWN };
 enum ItemType { NONE, SPEED_INCREASE, SPEED_DECREASE, COMPRESSION,
-    RESET, RESET_REVERSE, FREEZE, FAST_TURN, INVINCIBILITY, JUMP, UNKNOWN };
+    RESET, RESET_REVERSE, FREEZE, FAST_TURN, INVINCIBILITY,
+    JUMP, BOOST, UNKNOWN };
 class Item extends Disc_S
 {
     scope = ItemScope.NONE;
@@ -1417,6 +1424,8 @@ function initPlayersPositions(room: string): void
         player.invincibleDateTime = 0;
         player.jumping = false;
         player.jumpingDateTime = 0;
+        player.boosting = false;
+        player.boostingDateTime = 0;
         player.itemsTaken = new Array<ItemType>();
 
         // for fast test only
@@ -1482,6 +1491,8 @@ function serverLoop()
                 color= "white";
             else if (player.invincible)
                 color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
+            else if (player.boosting)
+                color = getRandomElement([player.color, "dimgray", "grey"]);
 
             io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
         }
@@ -1559,9 +1570,23 @@ function gameLogic(room: string): void
             // reset jump properties
             player.jumping = false;
             player.jumpingDateTime = 0;
-            player.jumpingDirection = { dirx: 0, diry: 0};
+            player.jumpingDirection = { dirx: 0, diry: 0 };
             player.jumpingPoint.x = -Infinity;
             player.jumpingPoint.y = -Infinity;
+        }
+
+    // finish boost if delay passed
+    const delayBoost = 5; // s
+    for (const [id, player] of game.players)
+        if (player.boosting)
+        if (Date.now() - player.boostingDateTime >= delayBoost * 1000)
+        {
+            // back to previous speed
+            player.speed = Math.min(Math.round(player.speed / 2), 1);
+
+            // reset boost properties
+            player.boosting = false;
+            player.boostingDateTime = 0;
         }
 
     // display scores if round finished
@@ -1683,10 +1708,16 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     if (player.jumping)
         return;
 
+    // if player boosting, 1 chance out of 2 to collide
+    const boostingCollides = (100*Math.random() > 50);
+
+    // check deadly collisions if player not invicible / boosting
+    const checkCollisions = !(player.invincible || (player.boosting && !boostingCollides));
+    
     // players
     for (const [id, otherPlayer] of game.players)
     {
-        if (!player.invincible)
+        if (checkCollisions)
         if (collideRay(player, <LiteRay_S>otherPlayer))
         {
             player.markForDead = true;
@@ -1698,7 +1729,7 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     // stadium
     for (const wall of game.stadium)
     {
-        if (!player.markForDead && !player.invincible)
+        if (checkCollisions && !player.markForDead)
             if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y))
             {
                 player.markForDead = true;
@@ -1710,7 +1741,7 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     // obstacles
     for (const obstacle of game.obstacles)
     {
-        if (!player.markForDead && !player.invincible)
+        if (checkCollisions && !player.markForDead)
             if (collideBox(player, obstacle))
             {
                 player.markForDead = true;
@@ -2120,8 +2151,8 @@ function generateItems(room: string): void
 
             // compute random type / scope
             const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
-                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN,
-                ItemType.FREEZE, ItemType.INVINCIBILITY, ItemType.JUMP, ItemType.UNKNOWN];
+                ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN, ItemType.FREEZE,
+                ItemType.INVINCIBILITY, ItemType.JUMP, ItemType.BOOST, ItemType.UNKNOWN];
             item.type = getRandomElement(types);
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
@@ -2199,6 +2230,7 @@ function geItemScopesGivenType(type: ItemType): Array<ItemScope>
             scopes = [ItemScope.PLAYER];
             break;
         
+        case ItemType.BOOST:
         case ItemType.JUMP:
             scopes = [ItemScope.PLAYER, ItemScope.ALL];
             break;
@@ -2319,8 +2351,10 @@ function applyItemTakenToPlayer(room: string, player: Player_S, type: ItemType):
             player.invincibleDateTime = Date.now();
             break;
         
+        // actionnable items
+        case ItemType.BOOST:
         case ItemType.JUMP:
-            player.itemsTaken.push(ItemType.JUMP);
+            player.itemsTaken.push(type);
             break;
 
         case ItemType.RESET:
@@ -2344,11 +2378,13 @@ function applyItemTakenToPlayer(room: string, player: Player_S, type: ItemType):
         }
 
         case ItemType.SPEED_DECREASE:
-            player.speed = Math.max(player.speed - 1, 1);
+            const decSpeed = player.boosting ? 2 : 1;
+            player.speed = Math.max(player.speed - decSpeed, decSpeed);
             break;
 
         case ItemType.SPEED_INCREASE:
-            player.speed++;
+            const incSpeed = player.boosting ? 2 : 1;
+            player.speed += incSpeed;
             break;
     }
 }
@@ -2362,9 +2398,23 @@ function applyPlayerItemAction(room: string, player: Player_S): void
     if (player.itemsTaken === null || player.itemsTaken.length == 0)
         return;
 
+    // cannot apply same item again
+    const lastType = <ItemType>player.itemsTaken[player.itemsTaken.length - 1];
+    if ((lastType == ItemType.BOOST && player.boosting)
+     || (lastType == ItemType.JUMP && player.boostingDateTime))
+        return;
+
     const type = <ItemType>player.itemsTaken.pop();
+    //console.log(`PLAYER ${player.no} activates item ${type.toString()}`);
+    
     switch(type)
-    {   
+    {
+        case ItemType.BOOST:
+            player.speed *= 2;
+            player.boostingDateTime = Date.now();
+            player.boosting = true;            
+            break;
+        
         case ItemType.JUMP:
             const lastPoint =  player.getLastPoint();
             player.jumpingPoint.x = lastPoint.x;
@@ -2417,6 +2467,11 @@ function sendItems(room: string): void
         
             case ItemType.SPEED_DECREASE:
                 typeStr = "speed_decrease";
+                break;
+
+
+            case ItemType.BOOST:
+                typeStr = "boost";
                 break;
 
             case ItemType.COMPRESSION:
