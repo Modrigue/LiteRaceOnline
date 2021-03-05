@@ -1176,7 +1176,7 @@ function gameLogic(room) {
     if (game.compressionInit)
         updateCompression(room);
     // init compression if delay passed / maze
-    const delayCompressionMax = 90; // s
+    const delayCompressionMax = 80; // s
     const curDate = Date.now();
     const roundElapsedTime = curDate - game.roundStartDateTime; // ms
     if (((game.roundNo + 5) % 20 == 0) && game.stadiumId == MAZE.MAZE_1) {
@@ -1657,7 +1657,7 @@ function generateItems(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
-    const DURATION_ITEM = 5; // s
+    const delayItem = 5 + 2 * Math.random(); // s
     if (game.items.length == 0) {
         const percentAppear = 100 * Math.random();
         if (percentAppear >= 99) {
@@ -1681,7 +1681,7 @@ function generateItems(room) {
     }
     else {
         // despawn item
-        if (Date.now() - game.itemAppearedDateTime >= DURATION_ITEM * 1000)
+        if (Date.now() - game.itemAppearedDateTime >= delayItem * 1000)
             removeItem(room);
     }
 }
