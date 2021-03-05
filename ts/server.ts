@@ -2401,7 +2401,7 @@ function applyPlayerItemAction(room: string, player: Player_S): void
     // cannot apply same item again
     const lastType = <ItemType>player.itemsTaken[player.itemsTaken.length - 1];
     if ((lastType == ItemType.BOOST && player.boosting)
-     || (lastType == ItemType.JUMP && player.boostingDateTime))
+     || (lastType == ItemType.JUMP && player.jumping))
         return;
 
     const type = <ItemType>player.itemsTaken.pop();

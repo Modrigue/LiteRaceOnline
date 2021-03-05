@@ -1860,7 +1860,7 @@ function applyPlayerItemAction(room, player) {
     // cannot apply same item again
     const lastType = player.itemsTaken[player.itemsTaken.length - 1];
     if ((lastType == ItemType.BOOST && player.boosting)
-        || (lastType == ItemType.JUMP && player.boostingDateTime))
+        || (lastType == ItemType.JUMP && player.jumping))
         return;
     const type = player.itemsTaken.pop();
     //console.log(`PLAYER ${player.no} activates item ${type.toString()}`);
