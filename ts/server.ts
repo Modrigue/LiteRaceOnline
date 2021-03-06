@@ -1072,12 +1072,10 @@ function playNewGame(room: string) {
             io.to(room).emit('prepareGame', { room: room, nbPlayersMax: game.nbPlayersMax,
                 nbRounds: game.nbRounds, countdown: i, initDisplay: (i == DURATION_PREPARE_SCREEN) });
 
-            // create players and start game
+            // create players for clients and start game
             if (i == 0)
             {
-                newRound(room);
-                
-                let playerParams = Array<{ id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string }>();
+                let playerParams = Array<{ id: string, name: string, color: string }>();
                 for (const [id, player] of game.players)
                 {
                     player.score = player.nbPointsInRound = 0;
@@ -1086,15 +1084,22 @@ function playNewGame(room: string) {
 
                     if (!game.hasTeams)
                         player.team = ""; // secure
+
+                    // for fast test only
+                    if (FAST_TEST_ON) {
+                        const playersColors = ["#ffff00", "#4444ff", "#ff4444", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
+                        player.color = playersColors[(player.no - 1) % playersColors.length];
+                        player.name = `Player ${player.no}`;
+
+                        if (FAST_TEST_HAS_TEAMS)
+                            player.team = (player.no % 2 == 1) ? "Team 1" : "Team 2";
+                    }
         
-                    playerParams.push({
-                        id: id, name: player.name, x1: player.points[0].x, y1: player.points[0].y,
-                        x2: player.points[1].x, y2: player.points[1].y, color: player.color
-                    });
+                    playerParams.push({ id: id, name: player.name, color: player.color });
                 }
-        
                 io.to(room).emit('createPlayers', playerParams);
-                game.displayStatus = DisplayStatus_S.PLAYING;
+
+                newRound(room);
             }
         }, (DURATION_PREPARE_SCREEN - i) * 1000);    
     }
@@ -1427,16 +1432,6 @@ function initPlayersPositions(room: string): void
         player.boosting = false;
         player.boostingDateTime = 0;
         player.itemsTaken = new Array<ItemType>();
-
-        // for fast test only
-        if (FAST_TEST_ON) {
-            const playersColors = ["#ffff00", "#4444ff", "#ff4444", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
-            player.color = playersColors[(player.no - 1) % playersColors.length];
-            player.name = `Player ${player.no}`;
-
-            if (FAST_TEST_HAS_TEAMS)
-                player.team = (player.no % 2 == 1) ? "Team 1" : "Team 2";
-        }
     }
 }
 

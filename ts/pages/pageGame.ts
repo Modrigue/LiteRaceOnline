@@ -20,15 +20,13 @@ socket.on('prepareGame', (params: {room: string, nbPlayersMax: string, nbRounds:
         requestAnimationFrame(renderOnly);
 });
 
-socket.on('createPlayers', (params: Array<{id: string, name: string, x1: number, y1: number, x2: number, y2: number, color: string}>) => {
-
+socket.on('createPlayers', (params: Array<{id: string, name: string, color: string}>) => {
+    //console.log(params);
     PLAYERS = new Map<string, Player>();
     for (const playerParams of params)
     {
         let player = new Player(playerParams.color);
         player.name = playerParams.name;
-        player.addPoint(playerParams.x1, playerParams.y1);
-        player.addPoint(playerParams.x2, playerParams.y2);
 
         if (playerParams.id === selfID)
             userInput(player, canvas);

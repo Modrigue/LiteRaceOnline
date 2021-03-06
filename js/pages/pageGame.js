@@ -15,12 +15,11 @@ socket.on('prepareGame', (params) => {
         requestAnimationFrame(renderOnly);
 });
 socket.on('createPlayers', (params) => {
+    //console.log(params);
     PLAYERS = new Map();
     for (const playerParams of params) {
         let player = new Player(playerParams.color);
         player.name = playerParams.name;
-        player.addPoint(playerParams.x1, playerParams.y1);
-        player.addPoint(playerParams.x2, playerParams.y2);
         if (playerParams.id === selfID)
             userInput(player, canvas);
         PLAYERS.set(playerParams.id, player);
