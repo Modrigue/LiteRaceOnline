@@ -36,6 +36,7 @@ canvas.width = STADIUM_W_CLIENT;
 canvas.height = STADIUM_H_CLIENT;
 
 let PLAYERS = new Map<string, Player>();
+let PLAYERS_INIT = new Map<string, Disc>();
 let STADIUM = new Array<Segment>();
 let OBSTACLES = new Array<Box>();
 let ITEMS = new Array<Disc>();
@@ -78,8 +79,6 @@ socket.on('stadium', (params: Array<{x1: number, y1: number, x2: number, y2: num
         const newWall: Segment = new Segment(data.x1, data.y1, data.x2, data.y2, data.color);
         STADIUM.push(newWall);
     }
-
-    displayStatus = DisplayStatus.PLAYING;
 });
 
 socket.on('obstacles', (params: Array<{x1: number, y1: number, x2: number, y2: number, color: string}>) => {

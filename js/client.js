@@ -32,6 +32,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = STADIUM_W_CLIENT;
 canvas.height = STADIUM_H_CLIENT;
 let PLAYERS = new Map();
+let PLAYERS_INIT = new Map();
 let STADIUM = new Array();
 let OBSTACLES = new Array();
 let ITEMS = new Array();
@@ -63,7 +64,6 @@ socket.on('stadium', (params) => {
         const newWall = new Segment(data.x1, data.y1, data.x2, data.y2, data.color);
         STADIUM.push(newWall);
     }
-    displayStatus = DisplayStatus.PLAYING;
 });
 socket.on('obstacles', (params) => {
     OBSTACLES = new Array();

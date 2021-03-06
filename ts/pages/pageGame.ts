@@ -33,6 +33,29 @@ socket.on('createPlayers', (params: Array<{id: string, name: string, color: stri
 
         PLAYERS.set(playerParams.id, player);
     }
+});
+
+socket.on('initPlayersPositions', (params: Array<{id: string, x: number, y: number, r: number, color: string}>) => {
+    //console.log("initPlayersPositions", params);
+
+    PLAYERS_INIT = new Map<string, Disc>();
+    for (const playerParams of params)
+    {
+        let positionDisc = new Disc(playerParams.x, playerParams.y, playerParams.r, playerParams.color);
+        PLAYERS_INIT.set(playerParams.id, positionDisc);
+    }
+
+    displayStatus = DisplayStatus.INIT_POSITIONS;
+});
+
+socket.on('startRound', (params: any) => {
+    //console.log("startRound");
+
+    // clear previous traces
+    for (const [id, player] of PLAYERS)
+    {
+        player.points = new Array<Point2>();
+    }
 
     displayStatus = DisplayStatus.PLAYING;
 });

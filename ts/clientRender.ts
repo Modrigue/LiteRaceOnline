@@ -22,6 +22,14 @@ function renderLoop(): void
             ctx.drawImage(imgPrepareCountdown, STADIUM_W_CLIENT/2 - imgCountdownW/2, 2/3*STADIUM_H_CLIENT - imgCountdownH/2, imgCountdownW, imgCountdownH);
             break;
 
+        case DisplayStatus.INIT_POSITIONS:
+
+            drawStadiumBounds();
+            STADIUM.forEach((wall) => { wall.draw(ctx); })
+            PLAYERS_INIT.forEach((player) => { player.draw(ctx); })
+
+            break;
+        
         case DisplayStatus.PLAYING:
 
             drawStadiumBounds();
@@ -31,8 +39,6 @@ function renderLoop(): void
             ITEMS.forEach((item) => { item.draw(ctx); })
             OBSTACLES.forEach((obstacle) => { obstacle.draw(ctx); })
             
-            //// display players' infos
-            //userInterface();
             break;
 
         case DisplayStatus.SCORES:

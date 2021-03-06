@@ -2,8 +2,11 @@ const STADIUM_W = 640;
 const STADIUM_H = 360;
 
 const DURATION_PREPARE_SCREEN = 3;  // in s
-const DURATION_SCORES_SCREEN = 3;
+const DURATION_SCORES_SCREEN = 2.5;
 const DURATION_GAME_OVER_SCREEN = 10;
+
+const DURATION_PLAYER_INIT = 0.4;
+const RADIUS_PLAYER_INIT = 100;
 
 const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
@@ -17,6 +20,7 @@ const FAST_TEST_NB_PLAYERS = 2;
 const FAST_TEST_NB_ROUNDS = 15;
 const FAST_TEST_HAS_TEAMS = false;
 
+// TODO: refactor in separate files
 
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
 
@@ -634,7 +638,7 @@ enum DisplayStatus_S
 {
     NONE,
     PREPARE,
-    POS_INIT,
+    INIT_POSITIONS,
     PLAYING,
     SCORES,
     GAME_OVER
@@ -660,6 +664,7 @@ class Game
 
     nbRounds: number = 10;
     roundNo: number = 0;
+    roundInitDateTime: number = 0;
     roundStartDateTime: number = 0;
     resetOnKilled: boolean = false;
 
@@ -1471,27 +1476,96 @@ function serverLoop()
     // send players positions to clients
     for (const [room, game] of games)
     {
-        if (game.status != GameStatus.PLAYING || game.displayStatus != DisplayStatus_S.PLAYING)
+        if (game.status != GameStatus.PLAYING)
             continue;
 
-        userInteraction(room);
-        physicsLoop(room);
-        gameLogic(room);
-
-        // client render
-        for (let [id, player] of game.players)
+        switch(game.displayStatus)
         {
-            let color = player.color;
-            if (player.frozen)
-                color= "white";
-            else if (player.invincible)
-                color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
-            else if (player.boosting)
-                color = getRandomElement([player.color, "dimgray", "grey"]);
+            case DisplayStatus_S.INIT_POSITIONS:
+                displayInitPositions(room);
+                break;
 
-            io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
+            case DisplayStatus_S.PLAYING:
+
+                // game loop
+                userInteraction(room);
+                physicsLoop(room);
+                gameLogic(room);
+
+                // client render
+                for (let [id, player] of game.players)
+                {
+                    let color = player.color;
+                    if (player.frozen)
+                        color= "white";
+                    else if (player.invincible)
+                        color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
+                    else if (player.boosting)
+                        color = getRandomElement([player.color, "dimgray", "grey"]);
+
+                    io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
+                }
+                break;
         }
     }
+}
+
+function displayInitPositions(room: string): void
+{
+    if (!games.has(room))
+        return;
+    const game = <Game>games.get(room);
+    if (game.players === null || game.players.size == 0)
+        return;
+
+    const elapsedTimeInit = Date.now() - game.roundInitDateTime; // ms
+
+    // get player with current number
+    let initParams = new Array<{id: string, x: number, y: number, r: number, color: string}>();
+    const noCur = Math.floor(elapsedTimeInit / (DURATION_PLAYER_INIT * 1000)) + 1;
+    let playerCur = null;
+    let idCur = "";
+    for (let i = 1; i <= noCur; i++)
+    {
+        let playerWithNo = null;
+        let idWithNo = "";
+
+        for (let [id, player] of game.players)
+            if (player.no == i)
+            {
+                playerWithNo = player;
+                idWithNo = id;
+                break;
+            }
+
+        if (playerWithNo == null)
+            continue;
+
+        if (i == noCur)
+        {
+            playerCur = playerWithNo;
+            idCur = idWithNo;
+        }
+        else if (i < noCur)
+        {
+            // add already positionned player
+            const startPoint = (<Player_S>playerWithNo).points[0];
+            initParams.push({id: idWithNo, x: startPoint.x, y: startPoint.y, r: 1, color: (<Player_S>playerWithNo).color});
+        }
+    }
+
+    // get current player's start point and current radius
+    if (playerCur !== null)
+    {
+        const elapsedTimePlayerInit = Date.now() - game.roundInitDateTime - DURATION_PLAYER_INIT*(playerCur.no - 1)*1000; // ms
+        const startPoint = playerCur.points[0];
+        let r = (elapsedTimePlayerInit < DURATION_PLAYER_INIT*1000) ?
+            RADIUS_PLAYER_INIT - RADIUS_PLAYER_INIT*(elapsedTimePlayerInit / (DURATION_PLAYER_INIT*1000)) : 1;
+        //console.log(noCur, elapsedTimePlayerInit);
+        initParams.push({id: idCur, x: startPoint.x, y: startPoint.y, r: r, color: playerCur.color});
+    }
+
+    io.to(room).emit('initPlayersPositions', initParams);
 }
 
 function gameLogic(room: string): void
@@ -1898,14 +1972,24 @@ function newRound(room: string): void
 
     const game = <Game>games.get(room);
     game.roundNo++;
-    game.roundStartDateTime = Date.now();  
+    game.roundInitDateTime = Date.now();  
     console.log(`ROOM ${room} - ROUND ${game.roundNo}`);
 
+    // prepare new round data
     newStadium(room);
     initPlayersPositions(room);
     initPlayersSpeeds(room);
     game.resetOnKilled = (Math.floor(100 * Math.random()) >= 50);
-    game.displayStatus = DisplayStatus_S.PLAYING;  
+
+    // display players' positions
+    game.displayStatus = DisplayStatus_S.INIT_POSITIONS;
+
+    // start round
+    setTimeout(() => {
+        io.to(room).emit('startRound', null);
+        game.roundStartDateTime = Date.now();
+        game.displayStatus = DisplayStatus_S.PLAYING;
+    }, (game.nbPlayersMax * DURATION_PLAYER_INIT + 0.2) * 1000); 
 }
 
 function newStadium(room: string): void

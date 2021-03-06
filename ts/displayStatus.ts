@@ -3,7 +3,7 @@ enum DisplayStatus
 {
     NONE,
     PREPARE,
-    POS_INIT,
+    INIT_POSITIONS,
     PLAYING,
     SCORES,
     GAME_OVER
