@@ -1228,13 +1228,13 @@ function gameLogic(room) {
     if (game.compressionInit)
         updateCompression(room);
     // init compression if delay passed / maze
-    const delayCompressionMax = 80; // s
+    const delayCompressionMax = 75; // s
     const curDate = Date.now();
     const roundElapsedTime = curDate - game.roundStartDateTime; // ms
     if (((game.roundNo + 5) % 20 == 0) && game.stadiumId == MAZE.MAZE_1) {
-        const delayCompression = 1.75; // s
+        const delayCompression = 2; // s
         if (roundElapsedTime > delayCompression * 1000)
-            initCompression(room, 1.25);
+            initCompression(room, 1.2);
     }
     else if ((game.roundNo + 2) % 5 == 0) {
         const delayCompression = 3; // s
