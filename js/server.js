@@ -1231,7 +1231,7 @@ function gameLogic(room) {
         if (player.boosting)
             if (Date.now() - player.boostingDateTime >= delayBoost * 1000) {
                 // back to previous speed
-                player.speed = Math.min(Math.round(player.speed / 2), 1);
+                player.speed = Math.max(Math.round(player.speed / 2), 1);
                 // reset boost properties
                 player.boosting = false;
                 player.boostingDateTime = 0;
