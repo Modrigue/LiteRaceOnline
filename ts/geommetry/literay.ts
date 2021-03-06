@@ -147,7 +147,7 @@ class LiteRay
             this.addPoint(pointLast.x, pointLast.y + this.speed);
         else if(this.left && dirx == 0)
             this.addPoint(pointLast.x - this.speed, pointLast.y);
-            else if(this.right && dirx == 0)
+        else if(this.right && dirx == 0)
             this.addPoint(pointLast.x + this.speed, pointLast.y);
     }
 }
