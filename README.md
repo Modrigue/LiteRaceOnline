@@ -1,5 +1,5 @@
 # LiteRaceOnline
-Tron-like online multiplayer game.
+Tron-like online multiplayer game with fun additionnal features.
 Uses socket.io
 
 Usage:
