@@ -2264,8 +2264,14 @@ function getNewItemPosition(room: string): Point2_S
         return new Point2_S(-Infinity, -Infinity);
     const game = <Game>games.get(room);
 
+    // default
     let x = STADIUM_W/2;
     let y = STADIUM_H/2;
+
+    // spawn item at center for inside mazes
+    if (game.stadiumId == MAZE.MAZE_1 || game.stadiumId == MAZE.MAZE_2)
+        return new Point2_S(x, y);
+
     for (let i = 0; i < 100; i++)
     {
         x = 1/16*STADIUM_W + 7/8*STADIUM_W*Math.random();
