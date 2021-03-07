@@ -9,4 +9,4 @@ $ npm install
 $ npm start
 ```
 
-_(Configure port in server.js)_
+_(Configure port in server.ts)_
