@@ -1136,6 +1136,9 @@ function initPlayersSpeeds(room) {
         speed = 3;
     else if (percent >= 50)
         speed = 2;
+    // set high speed every 10 rounds
+    if (game.roundNo % 10 == 6)
+        speed = 5;
     // mazes specific speeds
     switch (game.stadiumId) {
         case MAZE.MAZE_INSIDE_1:
