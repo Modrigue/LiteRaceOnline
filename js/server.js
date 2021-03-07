@@ -1231,13 +1231,13 @@ function gameLogic(room) {
     const delayCompressionMax = 75; // s
     const curDate = Date.now();
     const roundElapsedTime = curDate - game.roundStartDateTime; // ms
-    if (((game.roundNo + 5) % 20 == 0) && game.stadiumId == MAZE.MAZE_1) {
+    if ((game.roundNo % 20 == 15) && game.stadiumId == MAZE.MAZE_1) {
         const delayCompression = 2; // s
         if (roundElapsedTime > delayCompression * 1000)
             initCompression(room, 1.2);
     }
-    else if ((game.roundNo + 2) % 5 == 0) {
-        const delayCompression = 3; // s
+    else if (game.roundNo % 5 == 3) {
+        const delayCompression = 3 + 3 * Math.random(); // s
         if (roundElapsedTime > delayCompression * 1000)
             initCompression(room);
     }
@@ -1551,11 +1551,17 @@ function newStadium(room) {
     game.obstacles = new Array();
     game.items = new Array();
     game.compressionInit = false;
+    // set maze every 5 rounds
     let newStadiumId = MAZE.NONE;
-    if (game.roundNo % 10 == 0)
-        newStadiumId = MAZE.MAZE_2;
-    else if (game.roundNo % 5 == 0)
-        newStadiumId = MAZE.MAZE_1;
+    switch (game.roundNo % 10) {
+        case 5:
+            newStadiumId = MAZE.MAZE_1;
+            break;
+        case 0:
+            newStadiumId = MAZE.MAZE_2;
+            break;
+    }
+    // create stadium walls
     game.stadiumId = newStadiumId;
     switch (game.stadiumId) {
         case MAZE.NONE: // vanilla
