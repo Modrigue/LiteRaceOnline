@@ -673,7 +673,7 @@ class Game
     displayStatus: DisplayStatus_S = DisplayStatus_S.NONE;
 }
 
-enum MAZE { NONE, MAZE_1, MAZE_2 };
+enum MAZE { NONE, MAZE_INSIDE_1, MAZE_INSIDE_2, MAZE_OUTSIDE_1 };
 
 let games = new Map<string, Game>();
 let clientNo: number = 0;
@@ -1135,12 +1135,16 @@ function initPlayersPositions(room: string): void
         return;
     const game = <Game>games.get(room);
 
-    // TODO: handle teams?
-
     const percent = Math.floor(100 * Math.random());
-    const positioning: number = Math.floor(percent / 25) + 1;
+    let positioning: number = Math.floor(percent / 25) + 1;
 
-    if (game.stadiumId == MAZE.NONE)  // vanilla stadium
+    // foce reverse around for outside mazes
+    if (game.stadiumId == MAZE.MAZE_OUTSIDE_1)
+        positioning = 4;
+
+    // init positions
+    if (game.stadiumId == MAZE.NONE
+     || game.stadiumId == MAZE.MAZE_OUTSIDE_1)
     {
         switch (positioning)
         {
@@ -1293,7 +1297,7 @@ function initPlayersPositions(room: string): void
     {
         switch(game.stadiumId)
         {
-            case MAZE.MAZE_1:
+            case MAZE.MAZE_INSIDE_1:
                 {
                     const dy = 4;
                     const dPosy = Math.round(STADIUM_H/32); 
@@ -1325,7 +1329,7 @@ function initPlayersPositions(room: string): void
                 }
                 break;
             
-            case MAZE.MAZE_2:
+            case MAZE.MAZE_INSIDE_2:
                 {
                     let xLeft = 0;
                     let yTop = 0;
@@ -1456,12 +1460,16 @@ function initPlayersSpeeds(room: string): void
     // mazes specific speeds
     switch(game.stadiumId)
     {
-        case MAZE.MAZE_1:
+        case MAZE.MAZE_INSIDE_1:
             speed = (percent >= 50) ? 3 : 2;
             break;
 
-        case MAZE.MAZE_2:
+        case MAZE.MAZE_INSIDE_2:
             speed = (percent >= 50) ? 2 : 1;
+            break;
+
+        case MAZE.MAZE_OUTSIDE_1:
+            speed = 1;
             break;
     }
 
@@ -1585,7 +1593,7 @@ function gameLogic(room: string): void
     const delayCompressionMax = 75; // s
     const curDate = Date.now();
     const roundElapsedTime = curDate - game.roundStartDateTime; // ms
-    if ((game.roundNo % 20 == 15) && game.stadiumId == MAZE.MAZE_1)
+    if ((game.roundNo % 30 == 20) && game.stadiumId == MAZE.MAZE_INSIDE_1)
     {
         const delayCompression = 2; // s
         if (roundElapsedTime > delayCompression * 1000)
@@ -2005,14 +2013,18 @@ function newStadium(room: string): void
 
     // set maze every 5 rounds
     let newStadiumId = MAZE.NONE;
-    switch(game.roundNo % 10)
+    switch(game.roundNo % 15)
     {
         case 5:
-            newStadiumId = MAZE.MAZE_1;
+            newStadiumId = MAZE.MAZE_INSIDE_1;
+            break;
+
+        case 10:
+            newStadiumId = MAZE.MAZE_OUTSIDE_1;
             break;
 
         case 0:
-            newStadiumId = MAZE.MAZE_2;
+            newStadiumId = MAZE.MAZE_INSIDE_2;
             break;
     }
     
@@ -2045,10 +2057,10 @@ function newStadium(room: string): void
             }
             break;
 
-        case MAZE.MAZE_1:
+        case MAZE.MAZE_INSIDE_1:
             {   
                 putWallsAround(game);
-                const color = "LightGrey";
+                const colors = ["DimGray", "Gray", "DarkGray", "Silver", "LightGrey", "Gainsboro"];
 
                 const dx = Math.round(STADIUM_W / 2 / 8);
                 const dy = Math.round(STADIUM_H / 2 / 8);
@@ -2056,6 +2068,8 @@ function newStadium(room: string): void
                 // build per layer
                 for (let i = 1; i <= 6; i++)
                 {
+                    const color = colors[i - 1];
+
                     if (i % 2 == 1) // gaps on vertical walls
                     {
                         const hGap = (1.5 - 0.5*Math.floor(i/2)) * dy;
@@ -2081,21 +2095,22 @@ function newStadium(room: string): void
                 }
                 
                 // last layer
+                const color = "white";
                 game.stadium.push(new Segment_S(7*dx, 7*dy, STADIUM_W - 7*dx, 7*dy, color));
                 game.stadium.push(new Segment_S(7*dx, STADIUM_H - 7*dy, STADIUM_W - 7*dx, STADIUM_H - 7*dy, color));
             }
             break;
         
-        case MAZE.MAZE_2:
+        case MAZE.MAZE_INSIDE_2:
             {   
                 putWallsAround(game);
-                const color = "LightGrey";
 
                 let xMin = 0;
                 let yMin = 0;
                 let xMax = STADIUM_W;
                 let yMax = STADIUM_H;
 
+                const color = "white";
                 if (STADIUM_W > STADIUM_H)
                 {
                     xMin = STADIUM_W/2 - STADIUM_H/2;
@@ -2116,6 +2131,8 @@ function newStadium(room: string): void
                 let dxy = Math.round(w / 2 / 8);
                 const rGap = 2/3;
 
+                const colors = ["Gray", "DarkGray", "LightGrey", "Gainsboro"];
+
                 // build per layer
                 let xLeft = xMin;
                 let xRight = xMax;
@@ -2124,6 +2141,8 @@ function newStadium(room: string): void
                 let wCur = w;
                 for (let i = 1; i <= 4; i++)
                 {
+                    const color = colors[i - 1];
+
                     xLeft = xMin + i*dxy;
                     xRight = xMax - i*dxy;
                     yTop = yMin + i*dxy;
@@ -2164,6 +2183,51 @@ function newStadium(room: string): void
                 game.stadium.push(new Segment_S(xLeft + dxy, (yTop + yBottom)/2 + dxy, xLeft + dxy + wWall2, (yTop + yBottom)/2 + dxy - wWall2, color));
                 game.stadium.push(new Segment_S(xRight - dxy, (yTop + yBottom)/2 - dxy, xRight - dxy - wWall2, (yTop + yBottom)/2 - dxy + wWall2, color));
             }
+            break;
+
+        case MAZE.MAZE_OUTSIDE_1:
+            putWallsAround(game);
+            const w = Math.min(STADIUM_W, STADIUM_H);
+            const xc = STADIUM_W/2;
+            const yc = STADIUM_H/2;
+
+            // start on top and take it as reference for rotation
+            for (let a = 0; a < 2*Math.PI; a += Math.PI/2)
+            {
+                // 1st layer: cross
+                let color = "LightGrey";
+                let dxT1  = 0;   let dyT1 = -80;   let dxy1  = rotate(dxT1, dyT1, a);
+                let dxT1a = -40; let dyT1a = -120; let dxy1a = rotate(dxT1a, dyT1a, a);
+                let dxT1b = +40; let dyT1b = -120; let dxy1b = rotate(dxT1b, dyT1b, a);
+                game.stadium.push(new Segment_S(xc + dxy1.dx, yc + dxy1.dy, xc + dxy1a.dx, yc + dxy1a.dy, color));
+                game.stadium.push(new Segment_S(xc + dxy1.dx, yc + dxy1.dy, xc + dxy1b.dx, yc + dxy1b.dy, color));
+
+                // 2nd layers
+                color = "DarkGray";
+
+                let dxT2a  = dxT1a - 20; let dyT2a  = dyT1a - 20; let dxy2a  = rotate(dxT2a , dyT2a , a);
+                let dxT2aa = dxT2a - 20; let dyT2aa = dyT2a + 20; let dxy2aa = rotate(dxT2aa, dyT2aa, a);
+                let dxT2ab = dxT2a + 20; let dyT2ab = dyT2a - 20; let dxy2ab = rotate(dxT2ab, dyT2ab, a);
+                game.stadium.push(new Segment_S(xc + dxy2aa.dx, yc + dxy2aa.dy, xc + dxy2ab.dx, yc + dxy2ab.dy, color));
+
+                let dxT2b  = dxT1b + 20; let dyT2b  = dyT1b - 20; let dxy2b  = rotate(dxT2b , dyT2b , a);
+                let dxT2ba = dxT2b + 20; let dyT2ba = dyT2b + 20; let dxy2ba = rotate(dxT2ba, dyT2ba, a);
+                let dxT2bb = dxT2b - 20; let dyT2bb = dyT2b - 20; let dxy2bb = rotate(dxT2bb, dyT2bb, a);
+                game.stadium.push(new Segment_S(xc + dxy2ba.dx, yc + dxy2ba.dy, xc + dxy2bb.dx, yc + dxy2bb.dy, color));
+
+                // 3rd layer
+                color = "Gray";
+                let dxT3a = 0;   let dyT3a = -280; let dxy3a = rotate(dxT3a, dyT3a, a);
+                let dxT3b = 160; let dyT3b = -120; let dxy3b = rotate(dxT3b, dyT3b, a);
+                game.stadium.push(new Segment_S(xc + dxy3a.dx, yc + dxy3a.dy, xc + dxy3b.dx, yc + dxy3b.dy, color));
+
+                // 4th layer
+                color = "DimGray";
+                let dxT4a = 0;   let dyT4a = -360; let dxy4a = rotate(dxT4a, dyT4a, a);
+                let dxT4b = -140; let dyT4b = -220; let dxy4b = rotate(dxT4b, dyT4b, a);
+                game.stadium.push(new Segment_S(xc + dxy4a.dx, yc + dxy4a.dy, xc + dxy4b.dx, yc + dxy4b.dy, color));
+            }
+
             break;
     }
 
@@ -2269,7 +2333,7 @@ function getNewItemPosition(room: string): Point2_S
     let y = STADIUM_H/2;
 
     // spawn item at center for inside mazes
-    if (game.stadiumId == MAZE.MAZE_1 || game.stadiumId == MAZE.MAZE_2)
+    if (game.stadiumId == MAZE.MAZE_INSIDE_1 || game.stadiumId == MAZE.MAZE_INSIDE_2)
         return new Point2_S(x, y);
 
     for (let i = 0; i < 100; i++)
@@ -2738,4 +2802,12 @@ function getRandomElement<T>(array: Array<T>): T
 function distance(x1: number, y1: number, x2: number, y2: number): number
 {
     return Math.sqrt((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1))
+}
+
+function rotate(dx: number, dy: number, angle: number): { dx: number, dy: number }
+{
+    let dxRot = Math.round(Math.cos(angle)*dx - Math.sin(angle)*dy);
+    let dyRot = Math.round(Math.sin(angle)*dx + Math.cos(angle)*dy);
+
+    return { dx: dxRot, dy: dyRot };
 }
