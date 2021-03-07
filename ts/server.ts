@@ -1141,7 +1141,10 @@ function initPlayersPositions(room: string): void
     // foce reverse around for outside mazes
     if (game.stadiumId == MAZE.MAZE_OUTSIDE_1)
         positioning = 4;
-
+    // prevent around if high speed
+    else if (game.roundNo % 10 == 6 && positioning == 3)
+        positioning = 2;
+    
     // init positions
     if (game.stadiumId == MAZE.NONE
      || game.stadiumId == MAZE.MAZE_OUTSIDE_1)
@@ -1272,7 +1275,7 @@ function initPlayersPositions(room: string): void
                             player.addPoint(xStart, yStart);
                             player.addPoint(xStart + dx, yStart);
                         }
-                        else    // top /right
+                        else    // top / bottom
                         {
                             let xMin = (nbPlayersInSide % 2 == 0) ?
                                 STADIUM_W / 2 - (Math.floor(nbPlayersInSide / 2) - 0.5) * dxy :
