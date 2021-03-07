@@ -1239,7 +1239,7 @@ function gameLogic(room) {
     const curDate = Date.now();
     const roundElapsedTime = curDate - game.roundStartDateTime; // ms
     if ((game.roundNo % 30 == 20) && game.stadiumId == MAZE.MAZE_INSIDE_1) {
-        const delayCompression = 2; // s
+        const delayCompression = 2.5; // s
         if (roundElapsedTime > delayCompression * 1000)
             initCompression(room, 1.2);
     }
