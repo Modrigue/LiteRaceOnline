@@ -569,6 +569,9 @@ class Player_S extends LiteRay_S
     boosting: boolean = false;
     boostingDateTime: number = 0;
 
+    bulldozing: boolean = false;
+    bulldozingDateTime: number = 0;
+
     itemsTaken = new Array<ItemType>();
 
     jumpToNextPoint(): void
@@ -620,7 +623,7 @@ class Player_S extends LiteRay_S
 enum ItemScope { NONE, ALL, PLAYER, ENEMIES, UNKNOWN };
 enum ItemType { NONE, SPEED_INCREASE, SPEED_DECREASE, COMPRESSION,
     RESET, RESET_REVERSE, FREEZE, FAST_TURN, INVINCIBILITY,
-    JUMP, BOOST, UNKNOWN };
+    JUMP, BOOST, BULLDOZER, UNKNOWN };
 class Item extends Disc_S
 {
     scope = ItemScope.NONE;
@@ -1433,6 +1436,7 @@ function initPlayersPositions(room: string): void
         player.nbPointsInRound = 0;
         player.up = player.down = player.left = player.right = player.action = false;
 
+        // reset items data
         player.markForItem = false;
         player.fastTurn = false;
         player.frozen = false;
@@ -1443,6 +1447,8 @@ function initPlayersPositions(room: string): void
         player.jumpingDateTime = 0;
         player.boosting = false;
         player.boostingDateTime = 0;
+        player.bulldozing = false;
+        player.bulldozingDateTime = 0;
         player.itemsTaken = new Array<ItemType>();
     }
 }
@@ -1511,10 +1517,14 @@ function serverLoop()
                 for (let [id, player] of game.players)
                 {
                     let color = player.color;
+
+                    // special colors given player's state
                     if (player.frozen)
                         color= "white";
                     else if (player.invincible)
                         color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
+                    else if (player.bulldozingDateTime)
+                        color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red", "white", "black"]);
                     else if (player.boosting)
                         color = getRandomElement([player.color, "dimgray", "grey"]);
 
@@ -1629,7 +1639,7 @@ function gameLogic(room: string): void
             player.frozenDateTime = 0;
         }
 
-    // cancel invincibility if delay passed
+    // finish invincibility if delay passed
     const delayInvincibility = 5; // s
     for (const [id, player] of game.players)
         if (player.invincible)
@@ -1637,6 +1647,16 @@ function gameLogic(room: string): void
         {
             player.invincible = false;
             player.invincibleDateTime = 0;
+        }
+
+    // finish bulldozer if delay passed
+    const delayBulldozer = 6; // s
+    for (const [id, player] of game.players)
+        if (player.bulldozing)
+        if (Date.now() - player.bulldozingDateTime >= delayBulldozer * 1000)
+        {
+            player.bulldozing = false;
+            player.bulldozingDateTime = 0;
         }
 
     // finish jump if delay passed
@@ -2306,11 +2326,14 @@ function generateItems(room: string): void
                 return;
             const item = new Item(itemPos.x, itemPos.y, 20);
 
-            // compute random type / scope
+            // compute random type
             const types: Array<ItemType> = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
                 ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN, ItemType.FREEZE,
                 ItemType.INVINCIBILITY, ItemType.JUMP, ItemType.BOOST, ItemType.UNKNOWN];
             item.type = getRandomElement(types);
+            //item.type = ItemType.BULLDOZER;
+
+            // get random corresponding scope
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
 
@@ -2389,6 +2412,7 @@ function geItemScopesGivenType(type: ItemType): Array<ItemScope>
             scopes = [ItemScope.ENEMIES];
             break;
 
+        case ItemType.BULLDOZER:
         case ItemType.INVINCIBILITY:
             scopes = [ItemScope.PLAYER];
             break;
@@ -2500,6 +2524,11 @@ function applyItemTakenToPlayer(room: string, player: Player_S, type: ItemType):
                 player.invincible = false;
                 player.invincibleDateTime = 0;
             }
+            if (player.bulldozing)
+            {
+                player.bulldozing = false;
+                player.bulldozingDateTime = 0;
+            }
             player.frozen = true;
             player.frozenDateTime = Date.now();
             break;
@@ -2512,6 +2541,16 @@ function applyItemTakenToPlayer(room: string, player: Player_S, type: ItemType):
             }
             player.invincible = true;
             player.invincibleDateTime = Date.now();
+            break;
+
+        case ItemType.BULLDOZER:
+            if (player.frozen)
+            {
+                player.frozen = false;
+                player.frozenDateTime = 0;
+            }
+            player.bulldozing = true;
+            player.bulldozingDateTime = Date.now();
             break;
         
         // actionnable items
@@ -2632,9 +2671,12 @@ function sendItems(room: string): void
                 typeStr = "speed_decrease";
                 break;
 
-
             case ItemType.BOOST:
                 typeStr = "boost";
+                break;
+
+            case ItemType.BULLDOZER:
+                typeStr = "bulldozer";
                 break;
 
             case ItemType.COMPRESSION:
