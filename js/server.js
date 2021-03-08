@@ -28,7 +28,7 @@ class Point2_S {
     }
 }
 class Segment_S {
-    constructor(x1, y1, x2, y2, color) {
+    constructor(x1, y1, x2, y2, color = "black") {
         this.color = "";
         this._points = new Array(2);
         this._points[0] = new Point2_S(Math.round(x1), Math.round(y1));
@@ -284,11 +284,12 @@ function pointInDisc(x, y, disc) {
     return (dist <= disc.radius);
 }
 function collideRay(ray1, ray2) {
+    let collidedSegments = new Array();
     const pointLast = ray1.getLastPoint();
     const xr = pointLast.x;
     const yr = pointLast.y;
     if (xr == -Infinity || yr == -Infinity)
-        return false;
+        return collidedSegments;
     const isOwnRay = (ray1 === ray2);
     // check collision with each segment
     let index = 0;
@@ -302,14 +303,14 @@ function collideRay(ray1, ray2) {
             if (index > 0) {
                 const collide = collideSegment(ray1, pointPrev.x, pointPrev.y, pointCur.x, pointCur.y);
                 if (collide)
-                    return true;
+                    collidedSegments.push(new Segment_S(pointPrev.x, pointPrev.y, pointCur.x, pointCur.y));
             }
         }
         pointPrev.x = pointCur.x;
         pointPrev.y = pointCur.y;
         index++;
     }
-    return false;
+    return collidedSegments;
 }
 function computeDoubleCollision(ray1, ray2) {
     const pointLast1 = ray1.getLastPoint();
@@ -1187,8 +1188,8 @@ function serverLoop() {
                         color = "white";
                     else if (player.invincible)
                         color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
-                    else if (player.bulldozingDateTime)
-                        color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red", "white", "black"]);
+                    else if (player.bulldozing)
+                        color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red", "white"]);
                     else if (player.boosting)
                         color = getRandomElement([player.color, "dimgray", "grey"]);
                     io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
@@ -1429,12 +1430,14 @@ function checkPlayerCollisions(player, room = "") {
     const checkCollisions = !(player.invincible || (player.boosting && !boostingCollides));
     // players
     for (const [id, otherPlayer] of game.players) {
-        if (checkCollisions)
-            if (collideRay(player, otherPlayer)) {
-                player.markForDead = true;
-                player.killedBy = id;
-                //console.log(`PLAYER ${player.no} COLLISION RAY`);
-            }
+        if (!checkCollisions)
+            continue;
+        const collidedSegments = collideRay(player, otherPlayer);
+        if (collidedSegments && collidedSegments.length > 0) {
+            player.markForDead = true;
+            player.killedBy = id;
+            //console.log(`PLAYER ${player.no} COLLISION RAY`);
+        }
     }
     // stadium
     for (const wall of game.stadium) {

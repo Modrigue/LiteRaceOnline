@@ -45,7 +45,7 @@ class Segment_S
 
     color: string = "";
 
-    constructor(x1: number, y1: number, x2: number, y2: number, color: string)
+    constructor(x1: number, y1: number, x2: number, y2: number, color: string = "black")
     {
         this._points = new Array<Point2_S>(2);
         this._points[0] = new Point2_S(Math.round(x1), Math.round(y1));
@@ -406,14 +406,16 @@ function pointInDisc(x: number, y: number, disc: Disc_S): boolean
     return (dist <= disc.radius);
 }
 
-function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
+function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): Array<Segment_S>
 {
+    let collidedSegments = new Array<Segment_S>();
+
     const pointLast: Point2_S = ray1.getLastPoint();
     const xr = pointLast.x;
     const yr = pointLast.y;
 
     if (xr == -Infinity || yr == -Infinity)
-        return false;
+        return collidedSegments;
 
     const isOwnRay = (ray1 === ray2);
 
@@ -433,7 +435,7 @@ function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
             {
                 const collide = collideSegment(ray1, pointPrev.x, pointPrev.y, pointCur.x, pointCur.y);
                 if (collide)
-                    return true;
+                    collidedSegments.push(new Segment_S(pointPrev.x, pointPrev.y, pointCur.x, pointCur.y))
             }
         }
 
@@ -442,7 +444,7 @@ function collideRay(ray1: LiteRay_S, ray2: LiteRay_S): boolean
         index++;
     }
 
-    return false;
+    return collidedSegments;
 }
 
 function computeDoubleCollision(ray1: LiteRay_S, ray2: LiteRay_S): void
@@ -1525,8 +1527,8 @@ function serverLoop()
                         color= "white";
                     else if (player.invincible)
                         color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
-                    else if (player.bulldozingDateTime)
-                        color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red", "white", "black"]);
+                    else if (player.bulldozing)
+                        color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red", "white"]);
                     else if (player.boosting)
                         color = getRandomElement([player.color, "dimgray", "grey"]);
 
@@ -1839,8 +1841,11 @@ function checkPlayerCollisions(player: Player_S, room: string = ""): void
     // players
     for (const [id, otherPlayer] of game.players)
     {
-        if (checkCollisions)
-        if (collideRay(player, <LiteRay_S>otherPlayer))
+        if (!checkCollisions)
+            continue;
+        
+        const collidedSegments = collideRay(player, <LiteRay_S>otherPlayer);
+        if (collidedSegments && collidedSegments.length > 0)
         {
             player.markForDead = true;
             player.killedBy = id;
