@@ -137,29 +137,29 @@ class LiteRay_S {
         if (pointLast.x < 0) {
             const dx = Math.min(1, Math.abs(0 - pointLast.x));
             this.addPoint(Infinity, Infinity); // hole
-            this.addPoint(STADIUM_W, pointLast.y);
-            this.addPoint(STADIUM_W - dx, pointLast.y);
+            this.addPoint(STADIUM_W + 1, pointLast.y);
+            this.addPoint(STADIUM_W + 1 - dx, pointLast.y);
             return true;
         }
         else if (pointLast.x > STADIUM_W) {
             const dx = Math.min(1, Math.abs(pointLast.x - STADIUM_W));
             this.addPoint(Infinity, Infinity); // hole
-            this.addPoint(0, pointLast.y);
-            this.addPoint(0 + dx, pointLast.y);
+            this.addPoint(-1, pointLast.y);
+            this.addPoint(-1 + dx, pointLast.y);
             return true;
         }
         else if (pointLast.y < 0) {
             const dy = Math.min(1, Math.abs(0 - pointLast.y));
             this.addPoint(Infinity, Infinity); // hole
-            this.addPoint(pointLast.x, STADIUM_H);
-            this.addPoint(pointLast.x, STADIUM_H - dy);
+            this.addPoint(pointLast.x, STADIUM_H + 1);
+            this.addPoint(pointLast.x, STADIUM_H + 1 - dy);
             return true;
         }
         else if (pointLast.y > STADIUM_H) {
             const dy = Math.min(1, Math.abs(pointLast.y - STADIUM_H));
             this.addPoint(Infinity, Infinity); // hole
-            this.addPoint(pointLast.x, 0);
-            this.addPoint(pointLast.x, 0 + 0 + dy);
+            this.addPoint(pointLast.x, -1);
+            this.addPoint(pointLast.x, -1 + dy);
             return true;
         }
         return false;
@@ -503,6 +503,7 @@ class Game {
         this.stadium = new Array();
         this.stadiumId = MAZE.NONE;
         this.obstacles = new Array();
+        this.bulldozedWalls = new Array();
         this.compressionInit = false;
         this.compressionSpeed = 0;
         this.compressionStartDateTime = 0;
@@ -1400,6 +1401,18 @@ function physicsLoop(room) {
             if (!player.alive)
                 player.reset();
         });
+    // remove bulldozed walls
+    if (game.bulldozedWalls && game.bulldozedWalls.length > 0) {
+        for (const wall of game.bulldozedWalls) {
+            if (game.stadium.includes(wall))
+                game.stadium.forEach((segment, index) => {
+                    if (segment === wall)
+                        game.stadium.splice(index, 1);
+                });
+        }
+        sendStadium(room);
+        game.bulldozedWalls = new Array();
+    }
 }
 function checkPlayerCollisions(player, room = "") {
     if (room == "")
@@ -1427,9 +1440,16 @@ function checkPlayerCollisions(player, room = "") {
     for (const wall of game.stadium) {
         if (checkCollisions && !player.markForDead)
             if (collideSegment(player, wall.points[0].x, wall.points[0].y, wall.points[1].x, wall.points[1].y)) {
-                player.markForDead = true;
-                player.killedBy = "WALL";
-                //console.log(`PLAYER ${player.no} COLLISION WALL`);
+                if (player.bulldozing) {
+                    // if player bulldozing, add wall to bulldozed walls list
+                    if (!game.bulldozedWalls.includes(wall))
+                        game.bulldozedWalls.push(wall);
+                }
+                else {
+                    player.markForDead = true;
+                    player.killedBy = "WALL";
+                    //console.log(`PLAYER ${player.no} COLLISION WALL`);
+                }
             }
     }
     // obstacles
@@ -1578,6 +1598,7 @@ function newStadium(room) {
         return;
     const game = games.get(room);
     game.stadium = new Array();
+    game.bulldozedWalls = new Array();
     game.obstacles = new Array();
     game.items = new Array();
     game.compressionInit = false;
@@ -1603,7 +1624,6 @@ function newStadium(room) {
                 const percentWallH = Math.floor(100 * Math.random());
                 const wallsV = (percentWallV >= 50);
                 const wallsH = (percentWallH >= 50);
-                ;
                 if (wallsV) {
                     game.stadium.push(new Segment_S(0, 0, 0, STADIUM_H, "darkgrey"));
                     game.stadium.push(new Segment_S(STADIUM_W, 0, STADIUM_W, 480, "darkgrey"));
@@ -1861,7 +1881,7 @@ function getNewItemPosition(room) {
     let x = STADIUM_W / 2;
     let y = STADIUM_H / 2;
     // spawn item at center for inside mazes
-    if (game.stadiumId == MAZE.MAZE_INSIDE_1 || game.stadiumId == MAZE.MAZE_INSIDE_2)
+    if (game.stadiumId == MAZE.MAZE_INSIDE_1 || game.stadiumId == MAZE.MAZE_INSIDE_2 /*|| true*/)
         return new Point2_S(x, y);
     for (let i = 0; i < 100; i++) {
         x = 1 / 16 * STADIUM_W + 7 / 8 * STADIUM_W * Math.random();
@@ -1877,9 +1897,6 @@ function getNewItemPosition(room) {
         if (positionOk)
             break;
     }
-    // for tests only
-    //x = 200;
-    //y = 200;
     return new Point2_S(x, y);
 }
 // compute (random?) scope given type
