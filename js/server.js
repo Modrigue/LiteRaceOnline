@@ -171,6 +171,38 @@ class LiteRay_S {
         pointLast.x = this._pointLastCollision.x;
         pointLast.y = this._pointLastCollision.y;
     }
+    removeSegment(segment) {
+        // get segment points index in player's segments
+        let index = -1;
+        let pointPrev = new Point2_S(-Infinity, -Infinity);
+        for (const point of this._points) {
+            if (pointPrev.x == segment.points[0].x && pointPrev.y == segment.points[0].y
+                && point.x == segment.points[1].x && point.y == segment.points[1].y)
+                break; // points found
+            pointPrev.x = point.x;
+            pointPrev.y = point.y;
+            index++;
+        }
+        if (index < 0)
+            return;
+        //console.log("remove player segment", index);
+        const nbPlayerSegments = this._points.length - 1;
+        // if segment is player's last, reset segment to head
+        if (index == nbPlayerSegments - 1 && this.alive) {
+            const lastPoint = this.getLastPoint();
+            const dir = this.direction();
+            // insert hole
+            this._points.splice(index + 1, 0, new Point2_S(-Infinity, -Infinity));
+            this.addPoint(lastPoint.x, lastPoint.y);
+            this.addPoint(lastPoint.x + dir.dirx, lastPoint.y + dir.diry);
+        }
+        // else if player player is first segment, delete first point
+        else if (index == 0)
+            this._points.shift();
+        // else insert hole between segment points
+        else if (index < this._points.length - 1)
+            this._points.splice(index + 1, 0, new Point2_S(-Infinity, -Infinity));
+    }
     reset() {
         this.points = new Array();
         this._pointLastCollision.x = -Infinity;
@@ -505,6 +537,7 @@ class Game {
         this.stadiumId = MAZE.NONE;
         this.obstacles = new Array();
         this.bulldozedWalls = new Array();
+        this.bulldozedPlayersSegments = new Map();
         this.compressionInit = false;
         this.compressionSpeed = 0;
         this.compressionStartDateTime = 0;
@@ -1414,6 +1447,17 @@ function physicsLoop(room) {
         sendStadium(room);
         game.bulldozedWalls = new Array();
     }
+    // remove bulldozed players' segments
+    if (game.bulldozedPlayersSegments && game.bulldozedPlayersSegments.size > 0) {
+        for (const [id, player] of game.players) {
+            if (game.bulldozedPlayersSegments.has(id)) {
+                const collidedSegments = game.bulldozedPlayersSegments.get(id);
+                for (const segment of collidedSegments)
+                    player.removeSegment(segment);
+            }
+        }
+        game.bulldozedPlayersSegments = new Map();
+    }
 }
 function checkPlayerCollisions(player, room = "") {
     if (room == "")
@@ -1434,9 +1478,16 @@ function checkPlayerCollisions(player, room = "") {
             continue;
         const collidedSegments = collideRay(player, otherPlayer);
         if (collidedSegments && collidedSegments.length > 0) {
-            player.markForDead = true;
-            player.killedBy = id;
-            //console.log(`PLAYER ${player.no} COLLISION RAY`);
+            if (player.bulldozing) {
+                // if player bulldozing, add wall to bulldozed walls list
+                if (!game.bulldozedPlayersSegments.has(id))
+                    game.bulldozedPlayersSegments.set(id, collidedSegments);
+            }
+            else {
+                player.markForDead = true;
+                player.killedBy = id;
+                //console.log(`PLAYER ${player.no} COLLISION RAY`);
+            }
         }
     }
     // stadium
@@ -1857,7 +1908,8 @@ function generateItems(room) {
             // compute random type
             const types = [ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE, ItemType.COMPRESSION,
                 ItemType.RESET, ItemType.RESET_REVERSE, ItemType.FAST_TURN, ItemType.FREEZE,
-                ItemType.INVINCIBILITY, ItemType.JUMP, ItemType.BOOST, ItemType.UNKNOWN];
+                ItemType.INVINCIBILITY, ItemType.JUMP, ItemType.BOOST, ItemType.BULLDOZER,
+                ItemType.UNKNOWN];
             item.type = getRandomElement(types);
             //item.type = ItemType.BULLDOZER;
             // get random corresponding scope
@@ -2032,8 +2084,10 @@ function applyItemTakenToPlayer(room, player, type) {
                 const lastPoint = player.getLastPoint();
                 const dir = player.direction();
                 player.reset();
-                player.addPoint(lastPoint.x, lastPoint.y);
-                player.addPoint(lastPoint.x + dir.dirx, lastPoint.y + dir.diry);
+                if (player.alive) {
+                    player.addPoint(lastPoint.x, lastPoint.y);
+                    player.addPoint(lastPoint.x + dir.dirx, lastPoint.y + dir.diry);
+                }
                 break;
             }
         case ItemType.RESET_REVERSE:
@@ -2041,17 +2095,21 @@ function applyItemTakenToPlayer(room, player, type) {
                 const lastPoint = player.getLastPoint();
                 const dir = player.direction();
                 player.reset();
-                player.addPoint(lastPoint.x, lastPoint.y);
-                player.addPoint(lastPoint.x - dir.dirx, lastPoint.y - dir.diry);
+                if (player.alive) {
+                    player.addPoint(lastPoint.x, lastPoint.y);
+                    player.addPoint(lastPoint.x - dir.dirx, lastPoint.y - dir.diry);
+                }
                 break;
             }
         case ItemType.SPEED_DECREASE:
             const decSpeed = player.boosting ? 2 : 1;
-            player.speed = Math.max(player.speed - decSpeed, decSpeed);
+            if (player.alive)
+                player.speed = Math.max(player.speed - decSpeed, decSpeed);
             break;
         case ItemType.SPEED_INCREASE:
             const incSpeed = player.boosting ? 2 : 1;
-            player.speed += incSpeed;
+            if (player.alive)
+                player.speed += incSpeed;
             break;
     }
 }
@@ -2060,6 +2118,8 @@ function applyPlayerItemAction(room, player) {
         return;
     const game = games.get(room);
     if (player.itemsTaken === null || player.itemsTaken.length == 0)
+        return;
+    if (!player.alive)
         return;
     // cannot apply same item again
     const lastType = player.itemsTaken[player.itemsTaken.length - 1];
