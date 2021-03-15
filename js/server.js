@@ -1281,7 +1281,7 @@ function gameLogic(room) {
         return;
     const game = games.get(room);
     // create / delete random items
-    generateItems(room);
+    updateItems(room);
     // update compression if started
     if (game.compressionInit)
         updateCompression(room);
@@ -1894,14 +1894,19 @@ function newObstacles(room) {
     game.obstacles = obstacles;
     sendObstacles(room);
 }
-function generateItems(room) {
+function updateItems(room) {
     if (!games.has(room))
         return;
     const game = games.get(room);
+    // first item in inside maze?
+    let firstItemInInsideMaze = false;
+    const isInsideMaze = (game.stadiumId == MAZE.MAZE_INSIDE_1 || game.stadiumId == MAZE.MAZE_INSIDE_2);
+    if (isInsideMaze && !game.bulldozerFirstItemTaken)
+        firstItemInInsideMaze = true;
     const delayItem = 5 + 2 * Math.random(); // s
     if (game.items.length == 0) {
         const percentAppear = 100 * Math.random();
-        if (percentAppear >= 99) {
+        if (percentAppear >= 99 || firstItemInInsideMaze) {
             // generate new item
             const itemPos = getNewItemPosition(room);
             if (itemPos.x == -Infinity || itemPos.y == -Infinity)
@@ -1926,7 +1931,10 @@ function generateItems(room) {
         }
     }
     else {
-        // despawn item
+        // leave item if first item in inside maze
+        if (firstItemInInsideMaze)
+            return;
+        // unspawn item
         if (Date.now() - game.itemAppearedDateTime >= delayItem * 1000)
             removeItem(room);
     }
@@ -1939,8 +1947,9 @@ function getNewItemPosition(room) {
     // default
     let x = STADIUM_W / 2;
     let y = STADIUM_H / 2;
-    // spawn item at center for inside mazes
-    if (game.stadiumId == MAZE.MAZE_INSIDE_1 || game.stadiumId == MAZE.MAZE_INSIDE_2 /*|| true*/)
+    // spawn first item at center for inside mazes
+    const isInsideMaze = (game.stadiumId == MAZE.MAZE_INSIDE_1 || game.stadiumId == MAZE.MAZE_INSIDE_2);
+    if (isInsideMaze && !game.bulldozerFirstItemTaken)
         return new Point2_S(x, y);
     for (let i = 0; i < 100; i++) {
         x = 1 / 16 * STADIUM_W + 7 / 8 * STADIUM_W * Math.random();
