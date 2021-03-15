@@ -538,6 +538,7 @@ class Game {
         this.obstacles = new Array();
         this.bulldozedWalls = new Array();
         this.bulldozedPlayersSegments = new Map();
+        this.bulldozerFirstItemTaken = false;
         this.compressionInit = false;
         this.compressionSpeed = 0;
         this.compressionStartDateTime = 0;
@@ -1653,6 +1654,7 @@ function newStadium(room) {
     const game = games.get(room);
     game.stadium = new Array();
     game.bulldozedWalls = new Array();
+    game.bulldozerFirstItemTaken = false;
     game.obstacles = new Array();
     game.items = new Array();
     game.compressionInit = false;
@@ -1911,7 +1913,9 @@ function generateItems(room) {
                 ItemType.INVINCIBILITY, ItemType.JUMP, ItemType.BOOST, ItemType.BULLDOZER,
                 ItemType.UNKNOWN];
             item.type = getRandomElement(types);
-            //item.type = ItemType.BULLDOZER;
+            // set first item as bulldozer in mazes
+            if (game.stadiumId != MAZE.NONE && !game.bulldozerFirstItemTaken)
+                item.type = ItemType.BULLDOZER;
             // get random corresponding scope
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
@@ -2000,6 +2004,10 @@ function applyItemTaken(room, playerGotItem, item) {
     let scope = item.scope;
     let type = item.type;
     // specific items
+    // mazes: mark 1st bulldozer taken
+    if (game.stadiumId != MAZE.NONE && !game.bulldozerFirstItemTaken
+        && item.type == ItemType.BULLDOZER)
+        game.bulldozerFirstItemTaken = true;
     // unknown: get random type and scope
     if (item.type == ItemType.UNKNOWN) {
         scope = getRandomElement([ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES]);

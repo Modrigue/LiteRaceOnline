@@ -702,6 +702,7 @@ class Game
 
     bulldozedWalls: Array<Segment_S> = new Array<Segment_S>();
     bulldozedPlayersSegments: Map<string, Array<Segment_S>> = new Map<string, Array<Segment_S>>();
+    bulldozerFirstItemTaken: boolean = false;
 
     compressionInit: boolean = false;
     compressionSpeed: number = 0;
@@ -2133,6 +2134,7 @@ function newStadium(room: string): void
     const game = <Game>games.get(room);
     game.stadium = new Array<Segment_S>();
     game.bulldozedWalls = new Array<Segment_S>();
+    game.bulldozerFirstItemTaken = false;
     game.obstacles = new Array<Box_S>();
     game.items = new Array<Item>();
     game.compressionInit = false;
@@ -2431,7 +2433,10 @@ function generateItems(room: string): void
                 ItemType.INVINCIBILITY, ItemType.JUMP, ItemType.BOOST, ItemType.BULLDOZER,
                 ItemType.UNKNOWN];
             item.type = getRandomElement(types);
-            //item.type = ItemType.BULLDOZER;
+
+            // set first item as bulldozer in mazes
+            if (game.stadiumId != MAZE.NONE && !game.bulldozerFirstItemTaken)
+                item.type = ItemType.BULLDOZER;
 
             // get random corresponding scope
             const scopes = geItemScopesGivenType(item.type);
@@ -2552,6 +2557,11 @@ function applyItemTaken(room: string, playerGotItem: Player_S, item: Item): void
     let type = item.type;
 
     // specific items
+
+    // mazes: mark 1st bulldozer taken
+    if (game.stadiumId != MAZE.NONE && !game.bulldozerFirstItemTaken
+     && item.type == ItemType.BULLDOZER)
+        game.bulldozerFirstItemTaken = true;
 
     // unknown: get random type and scope
     if (item.type == ItemType.UNKNOWN)
