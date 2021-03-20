@@ -2420,7 +2420,7 @@ function updateItems(room: string): void
     if (isInsideMaze && !game.bulldozerFirstItemTaken)
         firstItemInInsideMaze = true;
 
-    const delayItem = 5 + 2*Math.random(); // s
+    const delayItem = 5 + 4*Math.random(); // s
     if (game.items.length == 0)
     {
         const percentAppear = 100*Math.random();

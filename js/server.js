@@ -1903,7 +1903,7 @@ function updateItems(room) {
     const isInsideMaze = (game.stadiumId == MAZE.MAZE_INSIDE_1 || game.stadiumId == MAZE.MAZE_INSIDE_2);
     if (isInsideMaze && !game.bulldozerFirstItemTaken)
         firstItemInInsideMaze = true;
-    const delayItem = 5 + 2 * Math.random(); // s
+    const delayItem = 5 + 4 * Math.random(); // s
     if (game.items.length == 0) {
         const percentAppear = 100 * Math.random();
         if (percentAppear >= 99 || firstItemInInsideMaze) {
