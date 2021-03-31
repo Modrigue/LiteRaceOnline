@@ -781,8 +781,8 @@ function connected(socket) {
         const room = getPlayerRoomFromId(socket.id);
         if (!games.has(room) || !player)
             return;
-        // no input if player jumping
-        if (player.jumping) {
+        // no input if player dead, frozen or jumping
+        if (!player.alive || player.frozen || player.jumping) {
             player.left = player.up = player.right = player.down = false;
             player.action = false;
             return;
@@ -1921,6 +1921,9 @@ function updateItems(room) {
             // set first item as bulldozer in mazes
             if (game.stadiumId != MAZE.NONE && !game.bulldozerFirstItemTaken)
                 item.type = ItemType.BULLDOZER;
+            // set random items only every 10 rounds
+            else if (game.roundNo % 10 == 9)
+                item.type = ItemType.UNKNOWN;
             // get random corresponding scope
             const scopes = geItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
