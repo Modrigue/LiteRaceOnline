@@ -11,21 +11,25 @@ function userInput(obj, canvas) {
             return;
         isDown = true;
         switch (e.key) {
+            case 'j':
             case 'ArrowLeft':
                 obj.left = true;
                 obj.right = obj.up = obj.down = false;
                 justPressed = true;
                 break;
+            case 'i':
             case 'ArrowUp':
                 obj.up = true;
                 obj.left = obj.right = obj.down = false;
                 justPressed = true;
                 break;
+            case 'l':
             case "ArrowRight":
                 obj.right = true;
                 obj.left = obj.up = obj.down = false;
                 justPressed = true;
                 break;
+            case 'k':
             case "ArrowDown":
                 obj.down = true;
                 obj.left = obj.right = obj.up = false;
@@ -48,18 +52,22 @@ function userInput(obj, canvas) {
         isDown = false;
         let hasReleasedKey = false;
         switch (e.key) {
+            case 'j':
             case 'ArrowLeft':
                 hasReleasedKey = true;
                 obj.left = false;
                 break;
+            case 'i':
             case 'ArrowUp':
                 hasReleasedKey = true;
                 obj.up = false;
                 break;
+            case 'l':
             case "ArrowRight":
                 hasReleasedKey = true;
                 obj.right = false;
                 break;
+            case 'k':
             case "ArrowDown":
                 hasReleasedKey = true;
                 obj.down = false;
