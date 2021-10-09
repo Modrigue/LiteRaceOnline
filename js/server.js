@@ -17,8 +17,8 @@ var GameMode;
 const FAST_TEST_ON = false;
 const FAST_TEST_MODE = GameMode.SURVIVOR;
 const FAST_TEST_NB_PLAYERS = 2;
+const FAST_TEST_NB_TEAMS = 0;
 const FAST_TEST_NB_ROUNDS = 15;
-const FAST_TEST_HAS_TEAMS = false;
 // TODO: refactor in separate files
 //////////////////////////////// GEOMETRY ENGINE //////////////////////////////
 class Point2_S {
@@ -573,7 +573,7 @@ function setFastTestMode(state) {
     gameTest.mode = FAST_TEST_MODE;
     gameTest.nbPlayersMax = FAST_TEST_NB_PLAYERS;
     gameTest.nbRounds = FAST_TEST_NB_ROUNDS;
-    gameTest.hasTeams = FAST_TEST_HAS_TEAMS;
+    gameTest.hasTeams = (FAST_TEST_NB_TEAMS > 0);
     games.set("TEST", gameTest);
 }
 io.on('connection', connected);
@@ -876,8 +876,12 @@ function playNewGame(room) {
                         const playersColors = ["#ffff00", "#4444ff", "#ff4444", "#00ff00", "#ffff88", "#8888ff", "#ff8888", "#88ff88"];
                         player.color = playersColors[(player.no - 1) % playersColors.length];
                         player.name = `Player ${player.no}`;
-                        if (FAST_TEST_HAS_TEAMS)
-                            player.team = (player.no % 2 == 1) ? "Team 1" : "Team 2";
+                        if (FAST_TEST_NB_TEAMS > 0) {
+                            let teamNo = (player.no % FAST_TEST_NB_TEAMS);
+                            if (teamNo == 0)
+                                teamNo = FAST_TEST_NB_TEAMS;
+                            player.team = `Team ${teamNo}`;
+                        }
                     }
                     playerParams.push({ id: id, name: player.name, color: player.color });
                 }
