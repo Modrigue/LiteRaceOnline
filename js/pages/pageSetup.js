@@ -94,9 +94,10 @@ socket.on('updateRoomParams', (params) => {
             divPlayerColor.appendChild(inputPlayerColor);
             divPlayersList.appendChild(divPlayerColor);
             // team
+            const nbTeamsMax = 4;
             const divPlayerTeam = document.createElement('div');
             const selectPlayerTeam = document.createElement('select');
-            for (let i = 1; i <= 2; i++) {
+            for (let i = 1; i <= nbTeamsMax; i++) {
                 let option = document.createElement('option');
                 option.value = `Team ${i}`;
                 option.textContent = `Team ${i}`;

@@ -123,9 +123,10 @@ socket.on('updateRoomParams', (params: {room: string, nbPlayersMax: number, nbRo
             divPlayersList.appendChild(divPlayerColor);
 
             // team
+            const nbTeamsMax = 4;
             const divPlayerTeam = <HTMLDivElement>document.createElement('div');
             const selectPlayerTeam = <HTMLSelectElement>document.createElement('select');
-            for (let i = 1; i <= 2; i++)
+            for (let i = 1; i <= nbTeamsMax; i++)
             {
                 let option = document.createElement('option');
                 option.value = `Team ${i}`;
