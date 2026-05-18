@@ -1364,35 +1364,51 @@ function initPlayersSpeeds(room) {
         player.speed = speed;
 }
 /////////////////////////////////////// LOOPS /////////////////////////////////
+// Rate-limit serverLoop error logs to 1 / second / room — a persistent
+// failure on a single room could otherwise spam stderr at the 60 Hz tick rate.
+const SERVER_LOOP_ERROR_LOG_INTERVAL_MS = 1000;
+const serverLoopErrorLastMs = new Map();
 function serverLoop() {
-    // send players positions to clients
+    var _a;
+    // send players positions to clients — wrapped in try/catch per room so
+    // a fault in one game doesn't take down the whole tick for every room.
     for (const [room, game] of games) {
-        if (game.status != GameStatus.PLAYING)
-            continue;
-        switch (game.displayStatus) {
-            case DisplayStatus_S.INIT_POSITIONS:
-                displayInitPositions(room);
-                break;
-            case DisplayStatus_S.PLAYING:
-                // game loop
-                userInteraction(room);
-                physicsLoop(room);
-                gameLogic(room);
-                // client render
-                for (let [id, player] of game.players) {
-                    let color = player.color;
-                    // special colors given player's state
-                    if (player.frozen)
-                        color = "white";
-                    else if (player.invincible)
-                        color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
-                    else if (player.bulldozing)
-                        color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red", "white"]);
-                    else if (player.boosting)
-                        color = getRandomElement([player.color, "dimgray", "grey"]);
-                    io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
-                }
-                break;
+        try {
+            if (game.status != GameStatus.PLAYING)
+                continue;
+            switch (game.displayStatus) {
+                case DisplayStatus_S.INIT_POSITIONS:
+                    displayInitPositions(room);
+                    break;
+                case DisplayStatus_S.PLAYING:
+                    // game loop
+                    userInteraction(room);
+                    physicsLoop(room);
+                    gameLogic(room);
+                    // client render
+                    for (let [id, player] of game.players) {
+                        let color = player.color;
+                        // special colors given player's state
+                        if (player.frozen)
+                            color = "white";
+                        else if (player.invincible)
+                            color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]);
+                        else if (player.bulldozing)
+                            color = getRandomElement(["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red", "white"]);
+                        else if (player.boosting)
+                            color = getRandomElement([player.color, "dimgray", "grey"]);
+                        io.to(room).emit('updatePlayersPositions', { id: id, points: player.points, color: color });
+                    }
+                    break;
+            }
+        }
+        catch (e) {
+            const nowMs = Date.now();
+            const lastMs = (_a = serverLoopErrorLastMs.get(room)) !== null && _a !== void 0 ? _a : 0;
+            if (nowMs - lastMs > SERVER_LOOP_ERROR_LOG_INTERVAL_MS) {
+                console.error(`[serverLoop] error in room '${room}':`, e);
+                serverLoopErrorLastMs.set(room, nowMs);
+            }
         }
     }
 }
