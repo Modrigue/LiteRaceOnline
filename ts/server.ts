@@ -750,6 +750,38 @@ io.on('connection', connected);
 setInterval(serverLoop, 1000 / 60);
 
 
+// Graceful shutdown on SIGTERM (Docker stop, kill <pid>) and SIGINT (Ctrl+C).
+// Notify clients, close the socket.io / http server, then exit. A 2 s drain
+// timeout guards against hung sockets; a second signal forces an immediate
+// exit.
+let shuttingDown = false;
+function shutdown(signal: string): void
+{
+    if (shuttingDown)
+    {
+        console.warn(`Already shutting down — second ${signal} forces exit.`);
+        process.exit(1);
+    }
+    shuttingDown = true;
+
+    console.log(`Received ${signal} — shutting down gracefully...`);
+
+    try { io.emit('serverShutdown'); } catch (e) { /* ignore */ }
+
+    io.close(() => {
+        console.log('Server closed cleanly.');
+        process.exit(0);
+    });
+
+    setTimeout(() => {
+        console.warn('Drain timeout (2 s) reached — forcing exit.');
+        process.exit(1);
+    }, 2000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
+
+
 //////////////////////////////// RECEIVE EVENTS ///////////////////////////////
 
 

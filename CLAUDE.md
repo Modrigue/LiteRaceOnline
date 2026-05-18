@@ -96,10 +96,20 @@ Items have a `type` (effect) and a `scope` (who is affected). Not every combinat
 
 ## Common pitfalls
 
-- **`EADDRINUSE :::5500` on `npm start`.** Happens when `DEPLOY=false` and a previous `node js/server.js` is still running. The port `5500` is hard-coded in the `DEPLOY=false` branch — `process.env.PORT` is **not** honored in that branch. Find the zombie with `Get-NetTCPConnection -LocalPort 5500` (PowerShell), then `Stop-Process -Id <pid> -Force`. Alternative: set `DEPLOY=true` in `ts/server.ts` and rebuild — the server then listens on `13000` and serves the static client itself (no Live Server needed).
+- **`EADDRINUSE :::5500` on `npm start`.** Happens when `DEPLOY=false` and a previous `node js/server.js` is still running. The port `5500` is hard-coded in the `DEPLOY=false` branch — `process.env.PORT` is **not** honored in that branch. Find the zombie with `Get-NetTCPConnection -LocalPort 5500` (PowerShell), then `Stop-Process -Id <pid> -Force`. Alternative: set `DEPLOY=true` in `ts/server.ts` and rebuild — the server then listens on `13000` and serves the static client itself (no Live Server needed). **A SIGINT/SIGTERM handler is wired up** (see "Graceful shutdown" below), so `Ctrl+C` in the terminal that owns `npm start` / `npm run dev` *does* clean up the port — the zombie scenario only happens when the process is killed without a real signal (closed terminal, IDE crash, `taskkill /F`, etc.).
 - **Build succeeded but behavior unchanged.** Check the `tsc` output — `noEmitOnError: true` means a single TS error leaves stale `js/*.js` in place. The server will happily run the old code.
 - **`npm install` warns about old lockfile.** The committed `package-lock.json` was generated with an old npm. The first install on a fresh checkout will rewrite it ("one-time fix-up"). That rewrite is expected; commit it only if dependency intent actually changed.
 - **`npm audit` reports many vulnerabilities (~12).** Mostly transitive (Express 4 / older lockfile). Don't run `npm audit fix --force` casually — it can bump major versions of express and break the server. Address individually if needed.
+
+## Graceful shutdown
+
+Server listens for `SIGTERM` (Docker `stop`, `kill <pid>`) and `SIGINT` (Ctrl+C). On signal it:
+1. Emits `serverShutdown` to all connected clients (informational — clients can ignore it).
+2. Calls `io.close()`, which also closes the underlying http server, releasing the port.
+3. Exits with code `0` once draining is done, or forces exit after a 2 s drain timeout (`process.exit(1)`).
+4. A second signal during shutdown forces an immediate exit.
+
+**Windows quirk:** `child.kill('SIGINT')` from another Node process does **not** trigger this handler — Node on Windows implements `child.kill` as `TerminateProcess` (effectively SIGKILL) regardless of the signal name. Test graceful shutdown manually via a real terminal Ctrl+C, or in Docker via `docker stop`. Automated child_process tests on Windows will look like the handler is broken when it actually isn't.
 
 ## Files you usually don't need to touch
 

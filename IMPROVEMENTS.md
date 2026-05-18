@@ -6,7 +6,7 @@ Concrete items observed while working on the codebase. Each is anchored to a rea
 - **M** — meaningful refactor or DX win.
 - **L** — nice-to-have / cosmetic.
 
-Items are numbered (`#1`..`#24`) for easy reference. Not every item needs doing; this is a menu, not a roadmap.
+Items are numbered (`#1`..`#23`) for easy reference. Not every item needs doing; this is a menu, not a roadmap.
 
 ---
 
@@ -117,23 +117,17 @@ Style drifts silently (mix of `let`/`const`, inconsistent brace style, casing). 
 
 ## Robustness
 
-### #14 [M] No graceful shutdown
-
-The server has no SIGTERM/SIGINT handler. In Docker, `docker stop` sends SIGTERM and waits 10 s before SIGKILL — currently all in-flight rooms are dropped abruptly with no notice to clients.
-
-**Fix:** on SIGTERM, `io.emit('serverShutdown')`, close http server, exit. Bonus: a 2-second drain.
-
-### #15 [M] Server state is in-memory only
+### #14 [M] Server state is in-memory only
 
 `games: Map<string, Game>` lives in the Node heap. A restart wipes every active room.
 
-**Fix:** depending on goals: (a) accept the limitation and document, (b) snapshot to disk on shutdown / interval, (c) move state to Redis (which also unlocks horizontal scaling — see #18).
+**Fix:** depending on goals: (a) accept the limitation and document, (b) snapshot to disk on shutdown / interval, (c) move state to Redis (which also unlocks horizontal scaling — see #17).
 
-### #16 [L] No error boundaries around `io.to(room).emit(...)`
+### #15 [L] No error boundaries around `io.to(room).emit(...)`
 
 If a socket disconnects between two server emits, the emit silently no-ops — fine. But if `JSON.stringify` chokes on a payload (e.g. circular reference introduced by a future change), the entire tick loop dies. A try/catch around the per-room tick would isolate failures.
 
-### #17 [L] No structured logging
+### #16 [L] No structured logging
 
 `console.log` everywhere. Fine for now; consider `pino` if you ever need to ship logs.
 
@@ -141,17 +135,17 @@ If a socket disconnects between two server emits, the emit silently no-ops — f
 
 ## Scalability / performance
 
-### #18 [M] Single Node process; no socket.io adapter
+### #17 [M] Single Node process; no socket.io adapter
 
 socket.io 4.x can scale across processes via `@socket.io/redis-adapter`. Currently the project is one-process, one-host. If multiplayer ever takes off, this is the bottleneck.
 
-**Fix (when needed):** add the redis-adapter, deploy multiple Node instances behind a sticky-session load balancer. Requires the Redis state migration from #15.
+**Fix (when needed):** add the redis-adapter, deploy multiple Node instances behind a sticky-session load balancer. Requires the Redis state migration from #14.
 
-### #19 [L] Compression not enabled on the socket
+### #18 [L] Compression not enabled on the socket
 
 By default socket.io 4 uses `permessage-deflate` for WebSocket but it can be tuned. For this game most messages are small position updates; compression may add latency more than it saves bytes. Worth a measurement before changing.
 
-### #20 [L] CDN dependency for the client socket.io script
+### #19 [L] CDN dependency for the client socket.io script
 
 [index.html:91](index.html#L91) — the client pulls `socket.io.min.js` from cdnjs. If cdnjs is down, the game is down. The `socket.io` server module already ships a matching client at `/socket.io/socket.io.js` — switch to that and the dependency disappears.
 
@@ -159,19 +153,19 @@ By default socket.io 4 uses `permessage-deflate` for WebSocket but it can be tun
 
 ## Bugs & code-quality nits
 
-### #21 [L] `STADIUM_W` / `STADIUM_H` are server-wide constants
+### #20 [L] `STADIUM_W` / `STADIUM_H` are server-wide constants
 
 [ts/server.ts:1-2](ts/server.ts#L1-L2). Every game uses the same arena dimensions. If you ever want a "small / medium / large arena" room option, these should move onto the `Game` class.
 
-### #22 [L] Item icon path built from lowercased enum name
+### #21 [L] Item icon path built from lowercased enum name
 
 [ts/client.ts:101](ts/client.ts#L101) — `imgType.src = \`./img/items/types/item_type_${data.type}.png\`;`. Implicit convention between enum names and on-disk filenames. A central registry would be safer (and let icons live somewhere else if ever needed).
 
-### #23 [L] `// TODO: handle ex-aequo`
+### #22 [L] `// TODO: handle ex-aequo`
 
 [ts/server.ts:2077](ts/server.ts#L2077) — game-over with tied scores isn't explicitly handled. Probably fine for the gameplay, worth confirming the current behavior is intentional.
 
-### #24 [L] `// TODO: use Bresenham's algorithm or SAT?`
+### #23 [L] `// TODO: use Bresenham's algorithm or SAT?`
 
 [ts/server.ts:404](ts/server.ts#L404) — collision detection is currently per-frame floating-point segment intersection. Probably fine at the current scale; revisit only if perf becomes an issue.
 
