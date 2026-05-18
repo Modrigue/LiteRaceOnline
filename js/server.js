@@ -556,6 +556,9 @@ class Game {
         this.password = "";
         this.status = GameStatus.NONE;
         this.displayStatus = DisplayStatus_S.NONE;
+        // abuse-protection bookkeeping
+        this.creatorIp = "";
+        this.lastActivityMs = Date.now();
     }
 }
 var MAZE;
@@ -627,6 +630,43 @@ const MAX_ROUNDS_PER_GAME = 99;
 // drive the per-player handler at thousands of Hz.
 const USER_COMMANDS_MIN_INTERVAL_MS = 15;
 const userCommandsLastMs = new Map();
+// Abuse protection on room creation:
+// - cap simultaneous rooms per source IP,
+// - sweep rooms stuck in SETUP for too long (creator went silent / browser
+//   tab closed without disconnect, etc.). PLAYING rooms are not swept —
+//   they are cleaned naturally when their last player disconnects.
+const MAX_ROOMS_PER_IP = 5;
+const IDLE_ROOM_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const ROOM_SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+function countRoomsForIp(ip) {
+    let n = 0;
+    for (const [_, game] of games)
+        if (game.creatorIp === ip)
+            n++;
+    return n;
+}
+function touchRoom(room) {
+    const game = games.get(room);
+    if (game)
+        game.lastActivityMs = Date.now();
+}
+function sweepIdleRooms() {
+    const now = Date.now();
+    let removed = 0;
+    for (const [room, game] of games) {
+        if (game.status === GameStatus.SETUP
+            && now - game.lastActivityMs > IDLE_ROOM_TIMEOUT_MS) {
+            const minutes = Math.round((now - game.lastActivityMs) / 60000);
+            console.log(`Removing idle SETUP room '${room}' (idle ${minutes} min)`);
+            kickAllPlayersFromRoom(room);
+            games.delete(room);
+            removed++;
+        }
+    }
+    if (removed > 0)
+        updateRoomsList();
+}
+setInterval(sweepIdleRooms, ROOM_SWEEP_INTERVAL_MS);
 function isObject(v) {
     return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
@@ -648,11 +688,18 @@ function connected(socket) {
     io.emit('gamesParams', { stadiumW: STADIUM_W, stadiumH: STADIUM_H, fastTestMode: FAST_TEST_ON });
     // create new room
     socket.on('createNewRoom', (params, response) => {
+        var _a, _b;
         if (!isObject(params)
             || !isNonEmptyStr(params.name, MAX_NAME_LEN)
             || !isNonEmptyStr(params.room, MAX_ROOM_LEN)
             || !isStr(params.password, MAX_PASSWORD_LEN)) {
             response({ error: "Invalid request." });
+            return;
+        }
+        // cap simultaneous rooms per source IP — anti-abuse
+        const ip = (_b = (_a = socket.handshake) === null || _a === void 0 ? void 0 : _a.address) !== null && _b !== void 0 ? _b : "";
+        if (countRoomsForIp(ip) >= MAX_ROOMS_PER_IP) {
+            response({ error: `Too many rooms created from your address (max ${MAX_ROOMS_PER_IP}).` });
             return;
         }
         const room = params.room;
@@ -675,6 +722,8 @@ function connected(socket) {
             ? bcrypt.hashSync(params.password, BCRYPT_ROUNDS)
             : "";
         newGame.status = GameStatus.SETUP;
+        newGame.creatorIp = ip;
+        newGame.lastActivityMs = Date.now();
         games.set(room, newGame);
         creator.no = 1;
         socket.join(room);
@@ -733,6 +782,7 @@ function connected(socket) {
         player.no = getNextPlayerNoInRoom(room);
         //player.color = '#' + Math.random().toString(16).substr(2,6); // random color
         game.players.set(socket.id, player);
+        touchRoom(room);
         // enable play button if game already on
         const enablePlay = (game.status == GameStatus.PLAYING);
         socket.join(room);
@@ -762,6 +812,7 @@ function connected(socket) {
                 game.nbRounds = params.nbRounds;
                 game.hasTeams = params.hasTeams;
                 game.mode = (params.mode == "survivor") ? GameMode.SURVIVOR : GameMode.BODYCOUNT;
+                touchRoom(room);
                 updateRoomParams(room);
             }
         }
@@ -788,6 +839,7 @@ function connected(socket) {
             player.color = params.color;
             player.team = params.team;
             player.ready = params.ready;
+            touchRoom(room);
             updatePlayersParams(room);
         }
     });

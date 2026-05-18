@@ -724,6 +724,10 @@ class Game
     password: string = "";
     status: GameStatus = GameStatus.NONE;
     displayStatus: DisplayStatus_S = DisplayStatus_S.NONE;
+
+    // abuse-protection bookkeeping
+    creatorIp: string = "";
+    lastActivityMs: number = Date.now();
 }
 
 enum MAZE { NONE, MAZE_INSIDE_1, MAZE_INSIDE_2, MAZE_OUTSIDE_1 };
@@ -804,6 +808,52 @@ const MAX_ROUNDS_PER_GAME = 99;
 const USER_COMMANDS_MIN_INTERVAL_MS = 15;
 const userCommandsLastMs = new Map<string, number>();
 
+// Abuse protection on room creation:
+// - cap simultaneous rooms per source IP,
+// - sweep rooms stuck in SETUP for too long (creator went silent / browser
+//   tab closed without disconnect, etc.). PLAYING rooms are not swept —
+//   they are cleaned naturally when their last player disconnects.
+const MAX_ROOMS_PER_IP = 5;
+const IDLE_ROOM_TIMEOUT_MS = 30 * 60 * 1000;    // 30 minutes
+const ROOM_SWEEP_INTERVAL_MS = 5 * 60 * 1000;   // 5 minutes
+
+function countRoomsForIp(ip: string): number
+{
+    let n = 0;
+    for (const [_, game] of games)
+        if (game.creatorIp === ip)
+            n++;
+    return n;
+}
+
+function touchRoom(room: string): void
+{
+    const game = games.get(room);
+    if (game)
+        game.lastActivityMs = Date.now();
+}
+
+function sweepIdleRooms(): void
+{
+    const now = Date.now();
+    let removed = 0;
+    for (const [room, game] of games)
+    {
+        if (game.status === GameStatus.SETUP
+            && now - game.lastActivityMs > IDLE_ROOM_TIMEOUT_MS)
+        {
+            const minutes = Math.round((now - game.lastActivityMs) / 60000);
+            console.log(`Removing idle SETUP room '${room}' (idle ${minutes} min)`);
+            kickAllPlayersFromRoom(room);
+            games.delete(room);
+            removed++;
+        }
+    }
+    if (removed > 0)
+        updateRoomsList();
+}
+setInterval(sweepIdleRooms, ROOM_SWEEP_INTERVAL_MS);
+
 function isObject(v: any): boolean
 {
     return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -843,6 +893,14 @@ function connected(socket: any)
             return;
         }
 
+        // cap simultaneous rooms per source IP — anti-abuse
+        const ip = socket.handshake?.address ?? "";
+        if (countRoomsForIp(ip) >= MAX_ROOMS_PER_IP)
+        {
+            response({ error: `Too many rooms created from your address (max ${MAX_ROOMS_PER_IP}).` });
+            return;
+        }
+
         const room = params.room;
         console.log(`Client '${socket.id}' - '${params.name}' asks to create room '${room}'`);
 
@@ -868,6 +926,8 @@ function connected(socket: any)
             ? bcrypt.hashSync(params.password, BCRYPT_ROUNDS)
             : "";
         newGame.status = GameStatus.SETUP;
+        newGame.creatorIp = ip;
+        newGame.lastActivityMs = Date.now();
         games.set(room, newGame);
         creator.no = 1;
 
@@ -943,6 +1003,7 @@ function connected(socket: any)
         //player.color = '#' + Math.random().toString(16).substr(2,6); // random color
 
         game.players.set(socket.id, player);
+        touchRoom(room);
 
         // enable play button if game already on
         const enablePlay: boolean = (game.status == GameStatus.PLAYING);
@@ -980,6 +1041,7 @@ function connected(socket: any)
                 game.nbRounds = params.nbRounds;
                 game.hasTeams = params.hasTeams;
                 game.mode = (params.mode == "survivor") ? GameMode.SURVIVOR : GameMode.BODYCOUNT;
+                touchRoom(room);
                 updateRoomParams(room);
             }
         }
@@ -1014,6 +1076,7 @@ function connected(socket: any)
             player.team = params.team;
             player.ready = params.ready;
 
+            touchRoom(room);
             updatePlayersParams(room);
         }
     });
