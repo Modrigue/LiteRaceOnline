@@ -753,6 +753,39 @@ setInterval(serverLoop, 1000 / 60);
 //////////////////////////////// RECEIVE EVENTS ///////////////////////////////
 
 
+// input validation helpers — defensive checks on every socket event payload
+// so a malformed (or hostile) client can't crash the room loop nor set
+// absurd values for game state.
+const MAX_NAME_LEN = 12;        // matches index.html maxlength on #userName
+const MAX_ROOM_LEN = 24;        // matches index.html maxlength on #createRoomName
+const MAX_PASSWORD_LEN = 12;    // matches index.html maxlength on #password
+const MAX_TEAM_LEN = 24;
+const MAX_COLOR_LEN = 8;        // "#RRGGBB" = 7 chars
+const MAX_PLAYER_ID_LEN = 64;   // socket.io ids are ~20 chars
+const MAX_PLAYERS_PER_ROOM = 99;
+const MAX_ROUNDS_PER_GAME = 99;
+
+function isObject(v: any): boolean
+{
+    return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+function isStr(v: any, maxLen: number): boolean
+{
+    return typeof v === 'string' && v.length <= maxLen;
+}
+function isNonEmptyStr(v: any, maxLen: number): boolean
+{
+    return typeof v === 'string' && v.length > 0 && v.length <= maxLen;
+}
+function isBool(v: any): boolean
+{
+    return typeof v === 'boolean';
+}
+function isIntInRange(v: any, min: number, max: number): boolean
+{
+    return typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+}
+
 function connected(socket: any)
 {
     console.log(`Client '${socket.id}' connected`);
@@ -762,6 +795,15 @@ function connected(socket: any)
 
     // create new room
     socket.on('createNewRoom', (params: { name: string, room: string, password: string }, response: any) => {
+        if (!isObject(params)
+            || !isNonEmptyStr(params.name, MAX_NAME_LEN)
+            || !isNonEmptyStr(params.room, MAX_ROOM_LEN)
+            || !isStr(params.password, MAX_PASSWORD_LEN))
+        {
+            response({ error: "Invalid request." });
+            return;
+        }
+
         const room = params.room;
         console.log(`Client '${socket.id}' - '${params.name}' asks to create room '${room}'`);
 
@@ -802,6 +844,15 @@ function connected(socket: any)
 
     // join room
     socket.on('joinRoom', (params: { name: string, room: string, password: string }, response: any) => {
+        if (!isObject(params)
+            || !isNonEmptyStr(params.name, MAX_NAME_LEN)
+            || !isNonEmptyStr(params.room, MAX_ROOM_LEN)
+            || !isStr(params.password, MAX_PASSWORD_LEN))
+        {
+            response({ error: "Invalid request." });
+            return;
+        }
+
         const room = params.room;
 
         // check if room exists
@@ -867,6 +918,15 @@ function connected(socket: any)
 
     // max. nb. of players update
     socket.on('setRoomParams', (params: { nbPlayersMax: number, nbRounds: number, hasTeams: boolean, mode: string }, response: any) => {
+        if (!isObject(params)
+            || !isIntInRange(params.nbPlayersMax, 1, MAX_PLAYERS_PER_ROOM)
+            || !isIntInRange(params.nbRounds, 1, MAX_ROUNDS_PER_GAME)
+            || !isBool(params.hasTeams)
+            || (params.mode !== "survivor" && params.mode !== "bodycount"))
+        {
+            return;
+        }
+
         const room = getPlayerRoomFromId(socket.id);
         if (room.length == 0)
             return;
@@ -890,6 +950,14 @@ function connected(socket: any)
 
     // player parameters update
     socket.on('setPlayerParams', (params: { color: string, team: string, ready: boolean }, response: any) => {
+        if (!isObject(params)
+            || !isStr(params.color, MAX_COLOR_LEN)
+            || !isStr(params.team, MAX_TEAM_LEN)
+            || !isBool(params.ready))
+        {
+            return;
+        }
+
         const room = getPlayerRoomFromId(socket.id);
         if (room.length == 0)
             return;
@@ -993,6 +1061,9 @@ function connected(socket: any)
     });
 
     socket.on('kickPlayer', (params: any, response: any) => {
+        if (!isObject(params) || !isNonEmptyStr(params.id, MAX_PLAYER_ID_LEN))
+            return;
+
         let player = getPlayerFromId(params.id);
         const room = getPlayerRoomFromId(params.id);
 
@@ -1012,6 +1083,14 @@ function connected(socket: any)
 
     // user inputs
     socket.on('userCommands', (data: any) => {
+        if (!isObject(data)
+            || !isBool(data.left) || !isBool(data.up)
+            || !isBool(data.right) || !isBool(data.down)
+            || !isBool(data.action))
+        {
+            return;
+        }
+
         let player = getPlayerFromId(socket.id);
         const room = getPlayerRoomFromId(socket.id);
         if (!games.has(room) || !player)
