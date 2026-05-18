@@ -34,7 +34,7 @@ The payload shape for each event is inlined at the call site — search for the 
 
 ## Pinned versions — handle with care
 
-- **Node 14.15.1** in `Dockerfile` (specifically `FROM node:14.15.1`). Node 14 is EOL but still works with socket.io 4.x as the runtime.
+- **Node 24.14.1** is the runtime. Pinned in three places that must stay in sync: `Dockerfile` (`FROM node:24.14.1`), `.nvmrc`, and the `engines.node` field of `package.json` (`>=20`). When bumping Node, update all three.
 - **Socket.IO 4.x** — declared as `^4.7.5` in `package.json` (currently resolves to `4.8.3`). Server side **and** client side must match: the CDN URL in `index.html` is `cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js`. Minor mismatches within 4.x are tolerated (wire protocol = Engine.IO 4), but 4.x clients cannot talk to 2.x servers and vice versa. When bumping either side, update both.
 - **Engine.IO protocol is v4.** Smoke-test the handshake with `GET /socket.io/?EIO=4&transport=polling` — it should return HTTP 200 with a JSON-ish body. If it returns 400 / 404 / `Bad handshake method`, the client and server are on incompatible protocol versions.
 - **Since socket.io 3+, CORS is disabled by default.** The dev-mode branch (`DEPLOY=false`) in `ts/server.ts` explicitly sets `{ cors: { origin: "*" } }` to allow a client served from a different origin. Don't drop that option.
