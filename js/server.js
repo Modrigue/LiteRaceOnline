@@ -594,6 +594,12 @@ const MAX_COLOR_LEN = 8; // "#RRGGBB" = 7 chars
 const MAX_PLAYER_ID_LEN = 64; // socket.io ids are ~20 chars
 const MAX_PLAYERS_PER_ROOM = 99;
 const MAX_ROUNDS_PER_GAME = 99;
+// Rate limit for `userCommands`: at most one accepted command every 15 ms
+// per socket (~67 Hz). The server tick runs at 60 Hz so anything faster
+// is wasted work. A hostile client spamming this event would otherwise
+// drive the per-player handler at thousands of Hz.
+const USER_COMMANDS_MIN_INTERVAL_MS = 15;
+const userCommandsLastMs = new Map();
 function isObject(v) {
     return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
@@ -794,6 +800,7 @@ function connected(socket) {
     socket.on('disconnect', function () {
         var _a;
         console.log(`Client '${socket.id}' disconnected`);
+        userCommandsLastMs.delete(socket.id);
         // if creator player in setup page, kick all players in room and delete room
         let player = getPlayerFromId(socket.id);
         // if unregistered player, nop
@@ -838,6 +845,13 @@ function connected(socket) {
     });
     // user inputs
     socket.on('userCommands', (data) => {
+        var _a;
+        // rate limit: silently drop commands faster than ~67 Hz
+        const nowMs = Date.now();
+        const lastMs = (_a = userCommandsLastMs.get(socket.id)) !== null && _a !== void 0 ? _a : 0;
+        if (nowMs - lastMs < USER_COMMANDS_MIN_INTERVAL_MS)
+            return;
+        userCommandsLastMs.set(socket.id, nowMs);
         if (!isObject(data)
             || !isBool(data.left) || !isBool(data.up)
             || !isBool(data.right) || !isBool(data.down)

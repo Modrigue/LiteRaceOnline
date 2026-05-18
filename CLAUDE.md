@@ -106,3 +106,7 @@ Items have a `type` (effect) and a `scope` (who is affected). Not every combinat
 - `package-lock.json` — committed; don't regenerate unless you've actually changed deps.
 - `js/**` — build output. Not gitignored but should not be hand-edited.
 - `sounds/`, `img/` — assets. Item icons follow strict naming (see Items section).
+
+## Compilation
+
+`npm run dev` must compile successfully.
