@@ -1,15 +1,15 @@
 "use strict";
 class Disc {
+    get center() { return this._center; }
+    set center(value) { this._center = value; }
+    get radius() { return this._radius; }
+    set radius(value) { this._radius = value; }
     constructor(x, y, r, color = "black") {
         this._center = new Point2(x, y);
         this._radius = r;
         this.color = color;
         this.images = new Array();
     }
-    get center() { return this._center; }
-    set center(value) { this._center = value; }
-    get radius() { return this._radius; }
-    set radius(value) { this._radius = value; }
     draw(ctx) {
         // display image if existing
         if (this.images.length) {

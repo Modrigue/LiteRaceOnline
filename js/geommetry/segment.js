@@ -1,5 +1,7 @@
 "use strict";
 class Segment {
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
     constructor(x1, y1, x2, y2, color) {
         this._points = new Array(2);
         this._points[0] = new Point2(x1, y1);
@@ -7,8 +9,6 @@ class Segment {
         ;
         this.color = color;
     }
-    get points() { return this._points; }
-    set points(value) { this._points = value; }
     draw(ctx) {
         ctx.beginPath();
         ctx.strokeStyle = this.color;

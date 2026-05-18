@@ -1,5 +1,7 @@
 "use strict";
 class LiteRay {
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
     constructor(color) {
         this._points = new Array();
         this.color = color;
@@ -11,8 +13,6 @@ class LiteRay {
         this.action = false;
         this.alive = false;
     }
-    get points() { return this._points; }
-    set points(value) { this._points = value; }
     getLastPoint() {
         if (!this._points || this._points.length == 0)
             return new Point2(-Infinity, -Infinity);

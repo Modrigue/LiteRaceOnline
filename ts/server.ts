@@ -575,7 +575,9 @@ if (DEPLOY)
 }
 else
 {
-    io = require('socket.io')(PORT)
+    // socket.io 3+ disables CORS by default — re-enable it for the dev setup
+    // where the static client is served from a different origin (e.g. Live Server).
+    io = require('socket.io')(PORT, { cors: { origin: "*" } })
     app.get('/', (req: any, res: any) => res.send('Hello World!'));
 }
 

@@ -1,5 +1,7 @@
 "use strict";
 class Box {
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
     constructor(x1, y1, x2, y2, color) {
         this._points = new Array(2);
         this._points[0] = new Point2(x1, y1);
@@ -8,8 +10,6 @@ class Box {
         this.color = color;
         this.image = null;
     }
-    get points() { return this._points; }
-    set points(value) { this._points = value; }
     draw(ctx) {
         const xMin = Math.min(this._points[0].x, this._points[1].x);
         const xMax = Math.max(this._points[0].x, this._points[1].x);

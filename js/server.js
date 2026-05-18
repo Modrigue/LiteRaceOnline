@@ -6,7 +6,7 @@ const DURATION_SCORES_SCREEN = 2.5;
 const DURATION_GAME_OVER_SCREEN = 10;
 const DURATION_PLAYER_INIT = 0.4;
 const RADIUS_PLAYER_INIT = 100;
-const DEPLOY = true;
+const DEPLOY = false;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 var GameMode;
 (function (GameMode) {
@@ -28,6 +28,8 @@ class Point2_S {
     }
 }
 class Segment_S {
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
     constructor(x1, y1, x2, y2, color = "black") {
         this.color = "";
         this._points = new Array(2);
@@ -35,31 +37,33 @@ class Segment_S {
         this._points[1] = new Point2_S(Math.round(x2), Math.round(y2));
         this.color = color;
     }
-    get points() { return this._points; }
-    set points(value) { this._points = value; }
 }
 class Box_S {
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
     constructor(x1, y1, x2, y2, color) {
         this._points = new Array(2);
         this._points[0] = new Point2_S(Math.round(x1), Math.round(y1));
         this._points[1] = new Point2_S(Math.round(x2), Math.round(y2));
         this.color = color;
     }
-    get points() { return this._points; }
-    set points(value) { this._points = value; }
 }
 class Disc_S {
+    get center() { return this._center; }
+    set center(value) { this._center = value; }
+    get radius() { return this._radius; }
+    set radius(value) { this._radius = value; }
     constructor(x, y, r, color = "white") {
         this._center = new Point2_S(x, y);
         this._radius = r;
         this.color = color;
     }
-    get center() { return this._center; }
-    set center(value) { this._center = value; }
-    get radius() { return this._radius; }
-    set radius(value) { this._radius = value; }
 }
 class LiteRay_S {
+    get points() { return this._points; }
+    set points(value) { this._points = value; }
+    get pointLastCollision() { return this._pointLastCollision; }
+    set pointLastCollision(value) { this._pointLastCollision = value; }
     constructor() {
         this._points = new Array();
         this._pointLastCollision = new Point2_S(-Infinity, -Infinity);
@@ -73,10 +77,6 @@ class LiteRay_S {
         this.fastTurn = false;
         this.alive = false;
     }
-    get points() { return this._points; }
-    set points(value) { this._points = value; }
-    get pointLastCollision() { return this._pointLastCollision; }
-    set pointLastCollision(value) { this._pointLastCollision = value; }
     getLastPoint() {
         if (!this._points || this._points.length == 0)
             return new Point2_S(-Infinity, -Infinity);
@@ -413,7 +413,9 @@ if (DEPLOY) {
     });
 }
 else {
-    io = require('socket.io')(PORT);
+    // socket.io 3+ disables CORS by default — re-enable it for the dev setup
+    // where the static client is served from a different origin (e.g. Live Server).
+    io = require('socket.io')(PORT, { cors: { origin: "*" } });
     app.get('/', (req, res) => res.send('Hello World!'));
 }
 class Player_S extends LiteRay_S {
