@@ -39,7 +39,7 @@ The payload shape for each event is inlined at the call site — search for the 
 - **Since socket.io 3+, CORS is disabled by default.** The dev-mode branch (`DEPLOY=false`) in `ts/server.ts` explicitly sets `{ cors: { origin: "*" } }` to allow a client served from a different origin. Don't drop that option.
 - **`@types/socket.io` is NOT a dependency.** Since socket.io 3.x the package ships its own types; the standalone `@types/socket.io` is obsolete and conflicts with the built-in types. Do not re-add it.
 - **`@types/node` is at `^20.11.0`** (compile-time only — runtime is still Node 14). The bump is required because `@types/ws` (transitive type dep of socket.io 4) uses generic `http.Server<...>` introduced in newer `@types/node`; an older `@types/node` causes `TS2315: Type 'Server' is not generic` during build. Don't downgrade.
-- **TypeScript** is installed globally (see `Dockerfile`) and as a dev tool, not as a project dependency.
+- **TypeScript and nodemon** are project devDependencies (resolved from `node_modules/.bin/` by npm scripts). No global install needed; `tsc --version` should match the `typescript` entry in `package.json`.
 
 ## Server-side socket.io call style
 
@@ -92,7 +92,7 @@ Items have a `type` (effect) and a `scope` (who is affected). Not every combinat
 | Watch + auto-restart | `npm run dev` (`tsc -w` + `nodemon` via `concurrently`) |
 | Docker image | `docker build -t literace-online .` then `docker run -p 13000:13000 literace-online` |
 
-`npm install -g typescript` is required before the first build — `tsc` is not a project dependency.
+`tsc` and `nodemon` resolve from `node_modules/.bin/` after a plain `npm install` — no global install required.
 
 ## Common pitfalls
 
