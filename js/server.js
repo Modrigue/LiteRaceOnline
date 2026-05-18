@@ -6,7 +6,7 @@ const DURATION_SCORES_SCREEN = 2.5;
 const DURATION_GAME_OVER_SCREEN = 10;
 const DURATION_PLAYER_INIT = 0.4;
 const RADIUS_PLAYER_INIT = 100;
-const DEPLOY = false;
+const DEPLOY = true;
 const PORT = DEPLOY ? (process.env.PORT || 13000) : 5500;
 var GameMode;
 (function (GameMode) {
@@ -401,6 +401,8 @@ function computeDoubleCollision(ray1, ray2) {
 }
 ///////////////////////////////////////////////////////////////////////////////
 const express = require('express');
+const bcrypt = require('bcryptjs');
+const BCRYPT_ROUNDS = 10;
 const app = express();
 let io;
 if (DEPLOY) {
@@ -603,7 +605,9 @@ function connected(socket) {
         creator.room = room;
         let newGame = new Game();
         newGame.players.set(socket.id, creator);
-        newGame.password = params.password; // TODO: hash password
+        newGame.password = params.password.length > 0
+            ? bcrypt.hashSync(params.password, BCRYPT_ROUNDS)
+            : "";
         newGame.status = GameStatus.SETUP;
         games.set(room, newGame);
         creator.no = 1;
@@ -633,7 +637,7 @@ function connected(socket) {
                 });
                 return;
             }
-            else if (params.password != game.password) {
+            else if (!bcrypt.compareSync(params.password, game.password)) {
                 response({
                     error: `Wrong password for room '${room}'.`
                 });

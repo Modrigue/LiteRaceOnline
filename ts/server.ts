@@ -557,6 +557,8 @@ function computeDoubleCollision(ray1: LiteRay_S, ray2: LiteRay_S): void
 
 
 const express = require('express')
+const bcrypt = require('bcryptjs')
+const BCRYPT_ROUNDS = 10
 const app = express()
 let io: any;
 
@@ -781,7 +783,9 @@ function connected(socket: any)
 
         let newGame = new Game();
         newGame.players.set(socket.id, creator);
-        newGame.password = params.password; // TODO: hash password
+        newGame.password = params.password.length > 0
+            ? bcrypt.hashSync(params.password, BCRYPT_ROUNDS)
+            : "";
         newGame.status = GameStatus.SETUP;
         games.set(room, newGame);
         creator.no = 1;
@@ -820,7 +824,7 @@ function connected(socket: any)
                 });
                 return;
             }
-            else if (params.password != game.password)
+            else if (!bcrypt.compareSync(params.password, game.password))
             {
                 response({
                     error: `Wrong password for room '${room}'.`

@@ -1,9 +1,13 @@
 {
     "compilerOptions": {
         "outDir": "js",
-        "target": "ES6",
+        "rootDir": "ts",
+        "target": "ES2016",
+        "lib": ["ES2016", "DOM"],
         "module": "commonjs",       /* supports modules */
+        "types": ["node", "bcryptjs"],
         "esModuleInterop": true,    /* former exports retrocompatibilty */
+        "skipLibCheck": true,       /* skip type-check inside node_modules/@types */
         "noEmitOnError": true,
         "strict": true,
         "noImplicitAny": true,
