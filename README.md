@@ -80,7 +80,7 @@ ts/                 TypeScript sources (both server and client)
   audio.ts          Sound effects
   teamData.ts       Team / color definitions
   displayStatus.ts  HUD
-  geommetry/        Point, segment, box, disc, literay (light-ray) primitives
+  geometry/         Point, segment, box, disc, literay (light-ray) primitives
   pages/            Welcome / setup / game page controllers
 js/                 Compiled output of ts/ (produced by `tsc`)
 css/                Stylesheet

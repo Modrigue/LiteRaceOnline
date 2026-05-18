@@ -1931,7 +1931,7 @@ function updateItems(room) {
             else if (game.roundNo % 10 == 9)
                 item.type = ItemType.UNKNOWN;
             // get random corresponding scope
-            const scopes = geItemScopesGivenType(item.type);
+            const scopes = getItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
             // generate item
             game.items.push(item);
@@ -1977,7 +1977,7 @@ function getNewItemPosition(room) {
     return new Point2_S(x, y);
 }
 // compute (random?) scope given type
-function geItemScopesGivenType(type) {
+function getItemScopesGivenType(type) {
     let scopes = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
     switch (type) {
         case ItemType.COMPRESSION:

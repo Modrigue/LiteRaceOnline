@@ -12,11 +12,10 @@ A Tron-like multiplayer browser game. Single Node process serves both the static
 - **Consequence:** classes and top-level declarations share a single global namespace per side (server / client).
 - **Same files compiled, two runtimes:**
   - The Node process executes `js/server.js`.
-  - The browser loads many of the same compiled files (`client.js`, `clientRender.js`, `userInput.js`, `interface.js`, `audio.js`, `teamData.js`, `displayStatus.js`, `geommetry/*.js`, `pages/*.js`) via `<script>` tags.
+  - The browser loads many of the same compiled files (`client.js`, `clientRender.js`, `userInput.js`, `interface.js`, `audio.js`, `teamData.js`, `displayStatus.js`, `geometry/*.js`, `pages/*.js`) via `<script>` tags.
   - `server.ts` is server-only; `client.ts` is browser-only. The geometry primitives are duplicated (see next point).
-- **`_S` suffix on server classes is deliberate.** Server-side geometry classes inside `server.ts` are named `Point2_S`, `Segment_S`, `Box_S`, `Disc_S`, `LiteRay_S`. The browser-side equivalents in `ts/geommetry/` are `Point2`, `Segment`, `Box`, `Disc`, `LiteRay`. The duplication exists because both sides share the same global namespace model and the server must not depend on browser-only types. Do **not** "deduplicate" them without rethinking the loading model.
+- **`_S` suffix on server classes is deliberate.** Server-side geometry classes inside `server.ts` are named `Point2_S`, `Segment_S`, `Box_S`, `Disc_S`, `LiteRay_S`. The browser-side equivalents in `ts/geometry/` are `Point2`, `Segment`, `Box`, `Disc`, `LiteRay`. The duplication exists because both sides share the same global namespace model and the server must not depend on browser-only types. Do **not** "deduplicate" them without rethinking the loading model.
 - **Adding a new client-side file requires two edits:** create the `.ts` under `ts/`, and add a matching `<script src="js/...">` to `index.html`. There is no auto-discovery.
-- **Typo in folder name — keep it.** The directory is `geommetry` (two m's). It's referenced verbatim in `index.html`. Don't rename it as part of unrelated work.
 
 ## Server architecture
 
@@ -66,13 +65,13 @@ Constants near the top of `ts/server.ts`: `FAST_TEST_ON`, `FAST_TEST_MODE`, `FAS
 
 ## Items system
 
-Items have a `type` (effect) and a `scope` (who is affected). Not every combination is valid — see `geItemScopesGivenType()` in `ts/server.ts` (note the typo: `geItemScopes`, not `getItemScopes`) for the allowed scopes per type. `ItemType.UNKNOWN` is resolved to a real type lazily at pickup time. When adding a new item type:
+Items have a `type` (effect) and a `scope` (who is affected). Not every combination is valid — see `getItemScopesGivenType()` in `ts/server.ts` for the allowed scopes per type. `ItemType.UNKNOWN` is resolved to a real type lazily at pickup time. When adding a new item type:
 
 1. Add the enum value to `ItemType` in `server.ts`.
 2. Add an icon at `img/items/types/item_type_<lowercase_name>.png` — the client builds the image path from the lowercased enum name (`client.ts` around line 101).
 3. Add a `case` in `applyItemTakenToPlayer()` for the effect.
 4. Add the type to the spawn pool in the items spawner (search for `ItemType.SPEED_INCREASE, ItemType.SPEED_DECREASE` to find the array).
-5. Add a `case` in `geItemScopesGivenType()` if scopes other than the default `[PLAYER, ALL, ENEMIES]` are needed.
+5. Add a `case` in `getItemScopesGivenType()` if scopes other than the default `[PLAYER, ALL, ENEMIES]` are needed.
 
 ## Conventions / quirks worth knowing
 

@@ -2457,7 +2457,7 @@ function updateItems(room: string): void
 
 
             // get random corresponding scope
-            const scopes = geItemScopesGivenType(item.type);
+            const scopes = getItemScopesGivenType(item.type);
             item.scope = getRandomElement(scopes);
 
             // generate item
@@ -2518,7 +2518,7 @@ function getNewItemPosition(room: string): Point2_S
 }
 
 // compute (random?) scope given type
-function geItemScopesGivenType(type: ItemType): Array<ItemScope>
+function getItemScopesGivenType(type: ItemType): Array<ItemScope>
 {
     let scopes: Array<ItemScope> = [ItemScope.PLAYER, ItemScope.ALL, ItemScope.ENEMIES];
     
